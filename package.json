@@ -3,13 +3,6 @@
   "workspaces": [
     "packages/*"
   ],
-  "husky": {
-    "hooks": {
-      "prepare-commit-msg": "node scripts/prepare-commit-message.js",
-      "commit-msg": "node scripts/lint-commit-message.js",
-      "pre-commit": "node scripts/warn-npm-install.js"
-    }
-  },
   "scripts": {
     "dev": "node scripts/dev.js",
     "build": "node scripts/build.js",
@@ -55,8 +48,8 @@
     "tslint": "^5.20.1",
     "typescript": "^3.9.7",
     "typestrict": "^1.0.2",
-    "vue": "^3.0.0-rc.5",
-    "vue-loader": "^16.0.0-beta.4",
+    "vue": "^3.0.0",
+    "vue-loader": "16.0.0-beta.8",
     "webpack": "^4.39.1",
     "webpack-cli": "^3.3.6",
     "webpack-merge": "^4.2.1"
