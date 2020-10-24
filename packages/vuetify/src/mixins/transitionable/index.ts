@@ -1,11 +1,5 @@
-import Vue from 'vue'
-
-export default Vue.extend({
-  name: 'transitionable',
-
-  props: {
-    mode: String,
-    origin: String,
-    transition: String,
-  },
-})
+export const transitionableProps = {
+  mode: String,
+  origin: String,
+  transition: String,
+}

@@ -1,198 +1,213 @@
+import { useVSheet, VSheetProps } from '@components/VSheet/VSheet'
+import { positionableProps } from '@mixins/positionable/index.ts'
+import { Registrable, RegistrableKey } from '@mixins/registrable'
+import useRoutable from '@mixins/routable/index.ts'
+import { computed, defineComponent, ExtractPropTypes, h, PropType, reactive, Ref, SetupContext, VNode } from 'vue'
+import { RippleOptions } from '../../directives/ripple'
+// Mixins
+import { groupableProps, useGroupableFactory } from '../../mixins/groupable'
+import { routableDirectives, routableProps } from '../../mixins/routable'
+import useSizeable, { sizeableProps } from '../../mixins/sizeable'
+import { toggableProps, useToggleableFactory } from '../../mixins/toggleable'
+import { breaking } from '../../util/console'
+// Components
+import VProgressCircular from '../VProgressCircular'
 // Styles
 import './VBtn.sass'
 
-// Extensions
-import VSheet from '../VSheet'
+export const BtnToggleKey: RegistrableKey = 'btnToggle'
 
-// Components
-import VProgressCircular from '../VProgressCircular'
-
-// Mixins
-import { factory as GroupableFactory } from '../../mixins/groupable'
-import { factory as ToggleableFactory } from '../../mixins/toggleable'
-import Positionable from '../../mixins/positionable'
-import Routable from '../../mixins/routable'
-import Sizeable from '../../mixins/sizeable'
-
-// Utilities
-import mixins, { ExtractVue } from '../../util/mixins'
-import { breaking } from '../../util/console'
-
-// Types
-import { VNode } from 'vue'
-import { PropValidator, PropType } from 'vue/types/options'
-import { RippleOptions } from '../../directives/ripple'
-
-const baseMixins = mixins(
-  VSheet,
-  Routable,
-  Positionable,
-  Sizeable,
-  GroupableFactory('btnToggle'),
-  ToggleableFactory('inputValue')
-  /* @vue/component */
-)
-interface options extends ExtractVue<typeof baseMixins> {
-  $el: HTMLElement
+export const VBtnProps = {
+  ...VSheetProps,
+  ...routableProps,
+  ...positionableProps(),
+  ...sizeableProps,
+  ...groupableProps(BtnToggleKey),
+  ...toggableProps('inputValue'),
+  activeClass: {
+    type: String,
+    default(): string | undefined {
+      return ''
+      // TODO: fix this
+      // if (!this.btnToggle) return ''
+      // return this.btnToggle.activeClass
+    },
+  } /* as any as PropValidator<string> */,
+  block: Boolean,
+  depressed: Boolean,
+  fab: Boolean,
+  icon: Boolean,
+  loading: Boolean,
+  outlined: Boolean,
+  retainFocusOnClick: Boolean,
+  rounded: Boolean,
+  tag: {
+    type: String,
+    default: 'button',
+  },
+  text: Boolean,
+  tile: Boolean,
+  type: {
+    type: String,
+    default: 'button',
+  },
+  value: null as any as PropType<any>,
 }
 
-export default baseMixins.extend<options>().extend({
-  name: 'v-btn',
+// interface options extends ExtractVue<typeof baseMixins> {
+//   $el: HTMLElement
+// }
 
-  props: {
-    activeClass: {
-      type: String,
-      default (): string | undefined {
-        if (!this.btnToggle) return ''
+const useGroupable = useGroupableFactory(BtnToggleKey)
+const useToggleable = useToggleableFactory('inputValue')
 
-        return this.btnToggle.activeClass
-      },
-    } as any as PropValidator<string>,
-    block: Boolean,
-    depressed: Boolean,
-    fab: Boolean,
-    icon: Boolean,
-    loading: Boolean,
-    outlined: Boolean,
-    retainFocusOnClick: Boolean,
-    rounded: Boolean,
-    tag: {
-      type: String,
-      default: 'button',
-    },
-    text: Boolean,
-    tile: Boolean,
-    type: {
-      type: String,
-      default: 'button',
-    },
-    value: null as any as PropType<any>,
-  },
+export function useVBtn(props: ExtractPropTypes<typeof VBtnProps>, context: SetupContext) {
+  const { measurableStyles, themeClasses, elevationClasses, setTextColor, setBackgroundColor } = useVSheet(props, context)
+  const { classes: routableClasses, generateRouteLink } = useRoutable(props, context)
+  const { sizeableClasses } = useSizeable(props)
+  const { toggle, groupClasses, ...groupables } = useGroupable(props, context)
+  const btnToggle = (groupables as any)[BtnToggleKey] as Registrable
+  const { } = useToggleable(props, context)
 
-  data: () => ({
+  const data = reactive({
     proxyClass: 'v-btn--active',
-  }),
+  })
 
-  computed: {
-    classes (): any {
-      return {
-        'v-btn': true,
-        ...Routable.options.computed.classes.call(this),
-        'v-btn--absolute': this.absolute,
-        'v-btn--block': this.block,
-        'v-btn--bottom': this.bottom,
-        'v-btn--contained': this.contained,
-        'v-btn--depressed': (this.depressed) || this.outlined,
-        'v-btn--disabled': this.disabled,
-        'v-btn--fab': this.fab,
-        'v-btn--fixed': this.fixed,
-        'v-btn--flat': this.isFlat,
-        'v-btn--icon': this.icon,
-        'v-btn--left': this.left,
-        'v-btn--loading': this.loading,
-        'v-btn--outlined': this.outlined,
-        'v-btn--right': this.right,
-        'v-btn--round': this.isRound,
-        'v-btn--rounded': this.rounded,
-        'v-btn--router': this.to,
-        'v-btn--text': this.text,
-        'v-btn--tile': this.tile,
-        'v-btn--top': this.top,
-        ...this.themeClasses,
-        ...this.groupClasses,
-        ...this.elevationClasses,
-        ...this.sizeableClasses,
-      }
-    },
-    contained (): boolean {
-      return Boolean(
-        !this.isFlat &&
-        !this.depressed &&
-        // Contained class only adds elevation
-        // is not needed if user provides value
-        !this.elevation
-      )
-    },
-    computedRipple (): RippleOptions | boolean {
-      const defaultRipple = this.icon || this.fab ? { circle: true } : true
-      if (this.disabled) return false
-      else return this.ripple ?? defaultRipple
-    },
-    isFlat (): boolean {
-      return Boolean(
-        this.icon ||
-        this.text ||
-        this.outlined
-      )
-    },
-    isRound (): boolean {
-      return Boolean(
-        this.icon ||
-        this.fab
-      )
-    },
-    styles (): object {
-      return {
-        ...this.measurableStyles,
-      }
-    },
-  },
-
-  created () {
-    const breakingProps = [
-      ['flat', 'text'],
-      ['outline', 'outlined'],
-      ['round', 'rounded'],
-    ]
-
-    /* istanbul ignore next */
-    breakingProps.forEach(([original, replacement]) => {
-      if (this.$attrs.hasOwnProperty(original)) breaking(original, replacement, this)
-    })
-  },
-
-  methods: {
-    click (e: MouseEvent): void {
-      // TODO: Remove this in v3
-      !this.retainFocusOnClick && !this.fab && e.detail && this.$el.blur()
-      this.$emit('click', e)
-
-      this.btnToggle && this.toggle()
-    },
-    genContent (): VNode {
-      return this.$createElement('span', {
-        staticClass: 'v-btn__content',
-      }, this.$slots.default)
-    },
-    genLoader (): VNode {
-      return this.$createElement('span', {
-        class: 'v-btn__loader',
-      }, this.$slots.loader || [this.$createElement(VProgressCircular, {
-        props: {
-          indeterminate: true,
-          size: 23,
-          width: 2,
-        },
-      })])
-    },
-  },
-
-  render (h): VNode {
-    const children = [
-      this.genContent(),
-      this.loading && this.genLoader(),
-    ]
-    const setColor = !this.isFlat ? this.setBackgroundColor : this.setTextColor
-    const { tag, data } = this.generateRouteLink()
-
-    if (tag === 'button') {
-      data.attrs!.type = this.type
-      data.attrs!.disabled = this.disabled
+  const classes: Ref<any> = computed(() => {
+    return {
+      'v-btn': true,
+      ...routableClasses.value,
+      'v-btn--absolute': props.absolute ?? false,
+      'v-btn--block': props.block,
+      'v-btn--bottom': props.bottom ?? false,
+      'v-btn--contained': contained.value,
+      'v-btn--depressed': (props.depressed) || props.outlined,
+      'v-btn--disabled': props.disabled,
+      'v-btn--fab': props.fab,
+      'v-btn--fixed': props.fixed ?? false,
+      'v-btn--flat': isFlat.value,
+      'v-btn--icon': props.icon,
+      'v-btn--left': props.left ?? false,
+      'v-btn--loading': props.loading,
+      'v-btn--outlined': props.outlined,
+      'v-btn--right': props.right ?? false,
+      'v-btn--round': isRound.value,
+      'v-btn--rounded': props.rounded,
+      'v-btn--router': props.to ?? false,
+      'v-btn--text': props.text,
+      'v-btn--tile': props.tile,
+      'v-btn--top': props.top ?? false,
+      ...themeClasses.value,
+      ...groupClasses.value,
+      ...elevationClasses.value,
+      ...sizeableClasses.value,
     }
-    data.attrs!.value = ['string', 'number'].includes(typeof this.value)
-      ? this.value
-      : JSON.stringify(this.value)
+  })
+  const contained: Ref<boolean> = computed(() => {
+    return Boolean(
+      !isFlat.value &&
+      !props.depressed &&
+      // Contained class only adds elevation
+      // is not needed if user provides value
+      !props.elevation
+    )
+  })
+  const computedRipple: Ref<RippleOptions | boolean> = computed(() => {
+    const defaultRipple = props.icon || props.fab ? { circle: true } : true
+    if (props.disabled) return false
+    else return props.ripple ?? defaultRipple
+  })
+  const isFlat: Ref<boolean> = computed(() => {
+    return Boolean(
+      props.icon ||
+      props.text ||
+      props.outlined
+    )
+  })
+  const isRound: Ref<boolean> = computed(() => {
+    return Boolean(
+      props.icon ||
+      props.fab
+    )
+  })
+  const styles: Ref<object> = measurableStyles
 
-    return h(tag, this.disabled ? data : setColor(this.color, data), children)
+  const breakingProps = [
+    ['flat', 'text'],
+    ['outline', 'outlined'],
+    ['round', 'rounded'],
+  ]
+
+  /* istanbul ignore next */
+  breakingProps.forEach(([original, replacement]) => {
+    if (context.attrs.hasOwnProperty(original)) breaking(original, replacement, /* this */) // TODO: fix this
+  })
+
+  function click(e: MouseEvent): void {
+    // TODO: Remove this in v3
+    // !props.retainFocusOnClick && !props.fab && e.detail && context.el.blur()
+    context.emit('click', e)
+
+    btnToggle && toggle()
+  }
+  function genContent(): VNode {
+    return h('span', {
+      staticClass: 'v-btn__content',
+    }, context.slots.default)
+  }
+  function genLoader(): VNode {
+    return h('span', {
+      class: 'v-btn__loader',
+    }, context.slots.loader || [h(VProgressCircular, {
+      props: {
+        indeterminate: true,
+        size: 23,
+        width: 2,
+      },
+    })])
+  }
+
+  return {
+    classes,
+    contained,
+    computedRipple,
+    isFlat,
+    isRound,
+    styles,
+    click,
+    genContent,
+    genLoader,
+    setBackgroundColor,
+    setTextColor,
+    generateRouteLink,
+  }
+}
+
+export default defineComponent({
+  name: 'v-btn',
+  props: VBtnProps,
+  directives: {
+    ...routableDirectives,
+  },
+  setup(props, context) {
+    const { genContent, genLoader, isFlat, setTextColor, setBackgroundColor, generateRouteLink } = useVBtn(props, context)
+    return () => {
+      const children = [
+        genContent(),
+        props.loading && genLoader(),
+      ]
+      const setColor = !isFlat.value ? setBackgroundColor : setTextColor
+      const { tag, data } = generateRouteLink()
+
+      if (tag === 'button') {
+        data.attrs!.type = props.type
+        data.attrs!.disabled = props.disabled
+      }
+      data.attrs!.value = ['string', 'number'].includes(typeof props.value)
+        ? props.value
+        : JSON.stringify(props.value)
+
+      return () => h(tag, props.disabled ? data : setColor(props.color, data), children)
+    }
   },
 })

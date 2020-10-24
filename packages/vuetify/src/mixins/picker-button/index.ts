@@ -1,39 +1,38 @@
-// Mixins
-import Colorable from '../colorable'
-
-// Utilities
-import mixins from '../../util/mixins'
+import { ExtractPropTypes, h, SetupContext, VNodeArrayChildren } from 'vue'
 import { kebabCase } from '../../util/helpers'
+// Mixins
+import { colorableProps } from '../colorable'
 
 // Types
-import { VNodeChildren } from 'vue'
+export const pickerButtonProps = {
+  ...colorableProps
+}
 
 /* @vue/component */
-export default mixins(
-  Colorable
-).extend({
-  methods: {
-    genPickerButton (
-      prop: string,
-      value: any,
-      content: VNodeChildren,
-      readonly = false,
-      staticClass = ''
-    ) {
-      const active = (this as any)[prop] === value
-      const click = (event: Event) => {
-        event.stopPropagation()
-        this.$emit(`update:${kebabCase(prop)}`, value)
-      }
+export default function usePickerButton(props: ExtractPropTypes<typeof pickerButtonProps>, context: SetupContext) {
+  function genPickerButton(
+    prop: keyof typeof pickerButtonProps,
+    value: any,
+    content: VNodeArrayChildren,
+    readonly = false,
+    staticClass = ''
+  ) {
+    const active = props[prop] === value
+    const click = (event: Event) => {
+      event.stopPropagation()
+      context.emit(`update:${kebabCase(prop)}`, value)
+    }
 
-      return this.$createElement('div', {
-        staticClass: `v-picker__title__btn ${staticClass}`.trim(),
-        class: {
-          'v-picker__title__btn--active': active,
-          'v-picker__title__btn--readonly': readonly,
-        },
-        on: (active || readonly) ? undefined : { click },
-      }, Array.isArray(content) ? content : [content])
-    },
-  },
-})
+    return h('div', {
+      staticClass: `v-picker__title__btn ${staticClass}`.trim(),
+      class: {
+        'v-picker__title__btn--active': active,
+        'v-picker__title__btn--readonly': readonly,
+      },
+      on: (active || readonly) ? undefined : { click }, // TODO: check this
+    }, Array.isArray(content) ? content : [content])
+  }
+  return {
+    genPickerButton,
+  }
+}

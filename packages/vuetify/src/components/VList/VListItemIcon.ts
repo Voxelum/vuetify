@@ -1,15 +1,16 @@
-// Types
-import Vue, { VNode } from 'vue'
+import { defineComponent, h, mergeProps } from 'vue'
 
 /* @vue/component */
-export default Vue.extend({
+const VListItemIcon = defineComponent({
   name: 'v-list-item-icon',
-
-  functional: true,
-
-  render (h, { data, children }): VNode {
-    data.staticClass = (`v-list-item__icon ${data.staticClass || ''}`).trim()
-
-    return h('div', data, children)
+  setup(props, context) {
+    return () => {
+      h('div', mergeProps(context.attrs, {
+        class: 'v-list-item__icon',
+      }), context.slots)
+    }
   },
 })
+
+export default VListItemIcon
+

@@ -1,55 +1,56 @@
+import { useVuetify } from 'types'
+import { computed, ExtractPropTypes, PropType, Ref, SetupContext } from 'vue'
 // Types
-import { BreakpointName } from 'vuetify/types/services/breakpoint'
+import { BreakpointName } from 'types/services/breakpoint'
 import { deprecate } from '../../util/console'
-import Vue, { PropType } from 'vue'
+
+export const mobileProps = {
+  mobileBreakpoint: {
+    type: [Number, String] as PropType<BreakpointName>,
+    default(): BreakpointName | undefined {
+      // Avoid destroying unit
+      // tests for users
+      const vuetify = useVuetify()
+      return vuetify
+        ? vuetify.breakpoint.mobileBreakpoint
+        : undefined
+    },
+    validator: (v: any) => (
+      !isNaN(Number(v)) ||
+      ['xs', 'sm', 'md', 'lg', 'xl'].includes(String(v))
+    ),
+  },
+}
 
 /* @vue/component */
-export default Vue.extend({
-  name: 'mobile',
+export default function useMobile(props: ExtractPropTypes<typeof mobileProps>, context: SetupContext) {
+  const isMobile: Ref<boolean> = computed(() => {
+    const {
+      mobile,
+      width,
+      name,
+      mobileBreakpoint,
+    } = useVuetify().breakpoint
 
-  props: {
-    mobileBreakpoint: {
-      type: [Number, String] as PropType<BreakpointName>,
-      default (): BreakpointName | undefined {
-        // Avoid destroying unit
-        // tests for users
-        return this.$vuetify
-          ? this.$vuetify.breakpoint.mobileBreakpoint
-          : undefined
-      },
-      validator: v => (
-        !isNaN(Number(v)) ||
-        ['xs', 'sm', 'md', 'lg', 'xl'].includes(String(v))
-      ),
-    },
-  },
+    // TODO: fix this
 
-  computed: {
-    isMobile (): boolean {
-      const {
-        mobile,
-        width,
-        name,
-        mobileBreakpoint,
-      } = this.$vuetify.breakpoint
+    // Check if local mobileBreakpoint matches
+    // the application's mobileBreakpoint
+    if (mobileBreakpoint === props.mobileBreakpoint) return mobile
 
-      // Check if local mobileBreakpoint matches
-      // the application's mobileBreakpoint
-      if (mobileBreakpoint === this.mobileBreakpoint) return mobile
+    const mobileWidth = parseInt(props.mobileBreakpoint, 10)
+    const isNumber = !isNaN(mobileWidth)
 
-      const mobileWidth = parseInt(this.mobileBreakpoint, 10)
-      const isNumber = !isNaN(mobileWidth)
+    return isNumber
+      ? width < mobileWidth
+      : name === props.mobileBreakpoint
+  })
 
-      return isNumber
-        ? width < mobileWidth
-        : name === this.mobileBreakpoint
-    },
-  },
-
-  created () {
-    /* istanbul ignore next */
-    if (this.$attrs.hasOwnProperty('mobile-break-point')) {
-      deprecate('mobile-break-point', 'mobile-breakpoint', this)
-    }
-  },
-})
+  /* istanbul ignore next */
+  if (context.attrs.hasOwnProperty('mobile-break-point')) {
+    deprecate('mobile-break-point', 'mobile-breakpoint', context)
+  }
+  return {
+    isMobile,
+  }
+}

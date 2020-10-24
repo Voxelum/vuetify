@@ -1,6 +1,6 @@
-import Vue from 'vue'
 import { filterObjectOnKeys } from '../../util/helpers'
-import { OptionsVue, VueConstructor } from 'vue/types/vue'
+export const positionableProps = <T extends keyof typeof availableProps>(selected: T[] = ['absolute', 'bottom', 'fixed', 'left', 'top', 'right', 'bottom'] as any) =>
+  filterObjectOnKeys(availableProps, selected)
 
 const availableProps = {
   absolute: Boolean,
@@ -10,45 +10,31 @@ const availableProps = {
   right: Boolean,
   top: Boolean,
 }
-type props = Record<keyof typeof availableProps, boolean>
-
-export type Positionable<S extends keyof props> = VueConstructor<Vue & { [P in S]: boolean }, { [P in S]: BooleanConstructor }>
-
-export function factory <S extends keyof props> (selected?: S[]): Positionable<S>
-export function factory (selected: undefined): OptionsVue<Vue, {}, {}, {}, props, typeof availableProps>
-export function factory (selected: any[] = []): any {
-  return Vue.extend({
-    name: 'positionable',
-    props: selected.length ? filterObjectOnKeys(availableProps, selected) : availableProps,
-  })
-}
-
-export default factory()
 
 // Add a `*` before the second `/`
 /* Tests /
-let single = factory(['top']).extend({
-  created () {
-    this.top
-    this.bottom
-    this.absolute
+function usePositionable(props: ExtractPropTypes<typeof positionableProps>) {
+    props.top
+    props.bottom
+    props.absolute
+  return {
   }
-})
+}
 
-let some = factory(['top', 'bottom']).extend({
-  created () {
-    this.top
-    this.bottom
-    this.absolute
+function usePositionable(props: ExtractPropTypes<typeof positionableProps>) {
+    props.top
+    props.bottom
+    props.absolute
+  return {
   }
-})
+}
 
-let all = factory().extend({
-  created () {
-    this.top
-    this.bottom
-    this.absolute
-    this.foobar
+function usePositionable(props: ExtractPropTypes<typeof positionableProps>) {
+    props.top
+    props.bottom
+    props.absolute
+    props.foobar
+  return {
   }
-})
+}
 /**/

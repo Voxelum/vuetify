@@ -1,34 +1,23 @@
-// Directives
-import ripple from '../../directives/ripple'
+import { VNodeData } from '@util/vnodeData'
+import { ExtractPropTypes, h, VNode, withDirectives } from 'vue'
+import { Ripple } from '../../directives/ripple'
 
-// Types
-import Vue, { VNode, VNodeData, VNodeDirective } from 'vue'
-
-export default Vue.extend({
-  name: 'rippleable',
-
-  directives: { ripple },
-
-  props: {
-    ripple: {
-      type: [Boolean, Object],
-      default: true,
-    },
+export const rippleableProps = {
+  ripple: {
+    type: [Boolean, Object],
+    default: true,
   },
+}
 
-  methods: {
-    genRipple (data: VNodeData = {}): VNode | null {
-      if (!this.ripple) return null
+export default function useRippleable(props: ExtractPropTypes<typeof rippleableProps>) {
+  function genRipple(data: VNodeData = {}): VNode | null {
+    if (!props.ripple) return null
 
-      data.staticClass = 'v-input--selection-controls__ripple'
+    data.class = 'v-input--selection-controls__ripple'
 
-      data.directives = data.directives || []
-      data.directives.push({
-        name: 'ripple',
-        value: { center: true },
-      } as VNodeDirective)
-
-      return this.$createElement('div', data)
-    },
-  },
-})
+    return withDirectives(h('div', data), [[Ripple]])
+  }
+  return {
+    genRipple,
+  }
+}

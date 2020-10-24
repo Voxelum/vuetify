@@ -1,252 +1,259 @@
-// Styles
-import './VAlert.sass'
-
-// Extensions
-import VSheet from '../VSheet'
-
+import { useVSheet, VSheetProps } from '@components/VSheet/VSheet'
+import { useVuetify } from '@framework'
+import { backgroundColor, textColor } from '@mixins/colorable'
+import { VNodeData } from '@util/vnodeData'
+import { computed, defineComponent, ExtractPropTypes, h, mergeProps, Ref, resolveDirective, SetupContext, VNode, withDirectives } from 'vue'
+// Mixins
+import useToggleable from '../../mixins/toggleable'
+import { transitionableProps } from '../../mixins/transitionable'
+import { breaking } from '../../util/console'
 // Components
 import VBtn from '../VBtn'
 import VIcon from '../VIcon'
+// Styles
+import './VAlert.sass'
 
-// Mixins
-import Toggleable from '../../mixins/toggleable'
-import Themeable from '../../mixins/themeable'
-import Transitionable from '../../mixins/transitionable'
-
-// Utilities
-import mixins from '../../util/mixins'
-import { breaking } from '../../util/console'
-
-// Types
-import { VNodeData } from 'vue'
-import { VNode } from 'vue/types'
-
-/* @vue/component */
-export default mixins(
-  VSheet,
-  Toggleable,
-  Transitionable
-).extend({
-  name: 'v-alert',
-
-  props: {
-    border: {
-      type: String,
-      validator (val: string) {
-        return [
-          'top',
-          'right',
-          'bottom',
-          'left',
-        ].includes(val)
-      },
-    },
-    closeLabel: {
-      type: String,
-      default: '$vuetify.close',
-    },
-    coloredBorder: Boolean,
-    dense: Boolean,
-    dismissible: Boolean,
-    closeIcon: {
-      type: String,
-      default: '$cancel',
-    },
-    icon: {
-      default: '',
-      type: [Boolean, String],
-      validator (val: boolean | string) {
-        return typeof val === 'string' || val === false
-      },
-    },
-    outlined: Boolean,
-    prominent: Boolean,
-    text: Boolean,
-    type: {
-      type: String,
-      validator (val: string) {
-        return [
-          'info',
-          'error',
-          'success',
-          'warning',
-        ].includes(val)
-      },
-    },
-    value: {
-      type: Boolean,
-      default: true,
+export const VAlertProps = {
+  border: {
+    type: String,
+    validator(val: string) {
+      return [
+        'top',
+        'right',
+        'bottom',
+        'left',
+      ].includes(val)
     },
   },
-
-  computed: {
-    __cachedBorder (): VNode | null {
-      if (!this.border) return null
-
-      let data: VNodeData = {
-        staticClass: 'v-alert__border',
-        class: {
-          [`v-alert__border--${this.border}`]: true,
-        },
-      }
-
-      if (this.coloredBorder) {
-        data = this.setBackgroundColor(this.computedColor, data)
-        data.class['v-alert__border--has-color'] = true
-      }
-
-      return this.$createElement('div', data)
-    },
-    __cachedDismissible (): VNode | null {
-      if (!this.dismissible) return null
-
-      const color = this.iconColor
-
-      return this.$createElement(VBtn, {
-        staticClass: 'v-alert__dismissible',
-        props: {
-          color,
-          icon: true,
-          small: true,
-        },
-        attrs: {
-          'aria-label': this.$vuetify.lang.t(this.closeLabel),
-        },
-        on: {
-          click: () => (this.isActive = false),
-        },
-      }, [
-        this.$createElement(VIcon, {
-          props: { color },
-        }, this.closeIcon),
-      ])
-    },
-    __cachedIcon (): VNode | null {
-      if (!this.computedIcon) return null
-
-      return this.$createElement(VIcon, {
-        staticClass: 'v-alert__icon',
-        props: { color: this.iconColor },
-      }, this.computedIcon)
-    },
-    classes (): object {
-      const classes: Record<string, boolean> = {
-        ...VSheet.options.computed.classes.call(this),
-        'v-alert--border': Boolean(this.border),
-        'v-alert--dense': this.dense,
-        'v-alert--outlined': this.outlined,
-        'v-alert--prominent': this.prominent,
-        'v-alert--text': this.text,
-      }
-
-      if (this.border) {
-        classes[`v-alert--border-${this.border}`] = true
-      }
-
-      return classes
-    },
-    computedColor (): string {
-      return this.color || this.type
-    },
-    computedIcon (): string | boolean {
-      if (this.icon === false) return false
-      if (typeof this.icon === 'string' && this.icon) return this.icon
-      if (!['error', 'info', 'success', 'warning'].includes(this.type)) return false
-
-      return `$${this.type}`
-    },
-    hasColoredIcon (): boolean {
-      return (
-        this.hasText ||
-        (Boolean(this.border) && this.coloredBorder)
-      )
-    },
-    hasText (): boolean {
-      return this.text || this.outlined
-    },
-    iconColor (): string | undefined {
-      return this.hasColoredIcon ? this.computedColor : undefined
-    },
-    isDark (): boolean {
-      if (
-        this.type &&
-        !this.coloredBorder &&
-        !this.outlined
-      ) return true
-
-      return Themeable.options.computed.isDark.call(this)
+  closeLabel: {
+    type: String,
+    default: '$vuetify.close',
+  },
+  coloredBorder: Boolean,
+  dense: Boolean,
+  dismissible: Boolean,
+  closeIcon: {
+    type: String,
+    default: '$cancel',
+  },
+  icon: {
+    default: '',
+    type: [Boolean, String],
+    validator(val: boolean | string) {
+      return typeof val === 'string' || val === false
     },
   },
+  // outlined: Boolean,
+  prominent: Boolean,
+  text: Boolean,
+  type: {
+    type: String,
+    validator(val: string) {
+      return [
+        'info',
+        'error',
+        'success',
+        'warning',
+      ].includes(val)
+    },
+  },
+  value: {
+    type: Boolean,
+    default: true,
+  },
+  ...VSheetProps,
+  // ...toggableProps,
+  ...transitionableProps,
+}
 
-  created () {
-    /* istanbul ignore next */
-    if (this.$attrs.hasOwnProperty('outline')) {
-      breaking('outline', 'outlined', this)
+// VSheet,
+// Toggleable,
+// Transitionable
+
+export function useVAlert(props: ExtractPropTypes<typeof VAlertProps>, context: SetupContext) {
+  const { styles, classes: sheetClasses, isDark: themeIsDark } = useVSheet(props, context)
+  const { isActive } = useToggleable(props, context)
+  const vuetify = useVuetify()
+  const vshow = resolveDirective('show')
+  const __cachedBorder: Ref<VNode | null> = computed(() => {
+    if (!props.border) return null
+
+    let data: VNodeData = {
+      class: {
+        'v-alert__border': true,
+        [`v-alert__border--${props.border}`]: true,
+      },
     }
-  },
 
-  methods: {
-    genWrapper (): VNode {
-      const children = [
-        this.$slots.prepend || this.__cachedIcon,
-        this.genContent(),
-        this.__cachedBorder,
-        this.$slots.append,
-        this.$scopedSlots.close
-          ? this.$scopedSlots.close({ toggle: this.toggle })
-          : this.__cachedDismissible,
-      ]
+    if (props.coloredBorder) {
+      data.class['v-alert__border--has-color'] = true
+    }
 
-      const data: VNodeData = {
-        staticClass: 'v-alert__wrapper',
-      }
+    return h('div', mergeProps(data, backgroundColor(computedColor.value)))
+  })
+  const __cachedDismissible: Ref<VNode | null> = computed(() => {
+    if (!props.dismissible) return null
 
-      return this.$createElement('div', data, children)
-    },
-    genContent (): VNode {
-      return this.$createElement('div', {
-        staticClass: 'v-alert__content',
-      }, this.$slots.default)
-    },
-    genAlert (): VNode {
-      let data: VNodeData = {
-        staticClass: 'v-alert',
-        attrs: {
-          role: 'alert',
+    const color = iconColor.value
+
+    return h(VBtn, {
+      class: 'v-alert__dismissible',
+      color,
+      icon: true,
+      small: true,
+      'aria-label': vuetify.lang.t(props.closeLabel),
+      onClick: () => (isActive.value = false),
+    }, [
+      h(VIcon, {
+        color
+      }, props.closeIcon),
+    ])
+  })
+  const __cachedIcon: Ref<VNode | null> = computed(() => {
+    if (!computedIcon.value) return null
+
+    return h(VIcon, {
+      class: 'v-alert__icon',
+      color: iconColor.value,
+    }, computedIcon.value)
+  })
+  const classes: Ref<object> = computed(() => {
+    const classes: Record<string, boolean> = {
+      ...sheetClasses.value,
+      'v-alert': true,
+      'v-alert--border': Boolean(props.border),
+      'v-alert--dense': props.dense ?? false,
+      'v-alert--outlined': props.outlined ?? false,
+      'v-alert--prominent': props.prominent ?? false,
+      'v-alert--text': props.text ?? false,
+    }
+
+    if (props.border) {
+      classes[`v-alert--border-${props.border}`] = true
+    }
+
+    return classes
+  })
+  const computedColor: Ref<string> = computed(() => {
+    return props.color || props.type || ''
+  })
+  const computedIcon: Ref<string | boolean> = computed(() => {
+    if (props.icon === false) return false
+    if (typeof props.icon === 'string' && props.icon) return props.icon
+    if (!['error', 'info', 'success', 'warning'].includes(props.type ?? '')) return false
+
+    return `$${props.type}`
+  })
+  const hasColoredIcon: Ref<boolean> = computed(() => {
+    return (
+      hasText.value ||
+      (Boolean(props.border) && props.coloredBorder)
+      || false
+    )
+  })
+  const hasText: Ref<boolean> = computed(() => {
+    return props.text || props.outlined || false
+  })
+  const iconColor: Ref<string | undefined> = computed(() => {
+    return hasColoredIcon.value ? computedColor.value : undefined
+  })
+  const isDark: Ref<boolean> = computed(() => {
+    if (
+      props.type &&
+      !props.coloredBorder &&
+      !props.outlined
+    ) return true
+
+    return themeIsDark.value
+  })
+
+  /* istanbul ignore next */
+  if (context.attrs.hasOwnProperty('outline')) {
+    breaking('outline', 'outlined', context)
+  }
+
+  function genWrapper(): VNode {
+    const children = [
+      context.slots.prepend?.() || __cachedIcon.value,
+      genContent(),
+      __cachedBorder.value,
+      context.slots.append?.(),
+      context.slots.close
+        ? context.slots.close({ toggle: toggle })
+        : __cachedDismissible.value,
+    ]
+
+    const data: VNodeData = {
+      class: 'v-alert__wrapper',
+    }
+
+    return h('div', data, children)
+  }
+  function genContent(): VNode {
+    return h('div', {
+      class: 'v-alert__content',
+    }, context.slots.default)
+  }
+  function genAlert(): VNode {
+    let data: VNodeData = {
+      role: 'alert',
+      ...context.attrs,
+      class: classes.value,
+      style: styles.value,
+      // directives: [{
+      //   name: 'show',
+      //   value: isActive.value,
+      // }],
+    }
+
+    let extra = {}
+    if (!props.coloredBorder) {
+      const setColor = hasText.value ? textColor : backgroundColor
+      extra = setColor(computedColor.value)
+    }
+
+
+    return withDirectives(h('div', mergeProps(data, extra), [genWrapper()]), [[vshow!, isActive]])
+  }
+  /** @public */
+  function toggle() {
+    isActive.value = !isActive.value
+  }
+
+  return {
+    __cachedBorder,
+    __cachedDismissible,
+    __cachedIcon,
+    classes,
+    computedColor,
+    computedIcon,
+    hasColoredIcon,
+    hasText,
+    iconColor,
+    isDark,
+    genWrapper,
+    genContent,
+    genAlert,
+    toggle,
+  }
+}
+
+export default defineComponent({
+  props: VAlertProps,
+  setup(props, context) {
+    const { genAlert } = useVAlert(props, context)
+    return () => {
+      const render = genAlert()
+
+      if (!props.transition) return render
+
+      return h('transition', {
+        props: {
+          name: props.transition,
+          origin: props.origin,
+          mode: props.mode,
         },
-        on: this.listeners$,
-        class: this.classes,
-        style: this.styles,
-        directives: [{
-          name: 'show',
-          value: this.isActive,
-        }],
-      }
-
-      if (!this.coloredBorder) {
-        const setColor = this.hasText ? this.setTextColor : this.setBackgroundColor
-        data = setColor(this.computedColor, data)
-      }
-
-      return this.$createElement('div', data, [this.genWrapper()])
-    },
-    /** @public */
-    toggle () {
-      this.isActive = !this.isActive
-    },
-  },
-
-  render (h): VNode {
-    const render = this.genAlert()
-
-    if (!this.transition) return render
-
-    return h('transition', {
-      props: {
-        name: this.transition,
-        origin: this.origin,
-        mode: this.mode,
-      },
-    }, [render])
+      }, [render])
+    }
   },
 })

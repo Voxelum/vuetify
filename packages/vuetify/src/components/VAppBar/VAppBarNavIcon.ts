@@ -1,28 +1,26 @@
+import { defineComponent, h } from 'vue'
+import VBtn from '../VBtn/VBtn'
 // Components
 import VIcon from '../VIcon'
-import VBtn from '../VBtn/VBtn'
-
-// Types
-import Vue from 'vue'
 
 /* @vue/component */
-export default Vue.extend({
+const VAppBarNavIcon = defineComponent({
   name: 'v-app-bar-nav-icon',
-
-  functional: true,
-
-  render (h, { slots, listeners, props, data }) {
-    const d = Object.assign(data, {
-      staticClass: (`v-app-bar__nav-icon ${data.staticClass || ''}`).trim(),
-      props: {
-        ...props,
+  setup(props, context) {
+    return () => {
+      const d = {
+        staticClass: (`v-app-bar__nav-icon ${context.attrs.staticClass || ''}`).trim(),
         icon: true,
-      },
-      on: listeners,
-    })
+        ...context.attrs,
+      }
 
-    const defaultSlot = slots().default
+      const defaultSlot = context.slots.default?.()
 
-    return h(VBtn, d, defaultSlot || [h(VIcon, '$menu')])
+      return h(VBtn, d, defaultSlot || [h(VIcon, '$menu')])
+    }
   },
 })
+
+export default VAppBarNavIcon
+
+

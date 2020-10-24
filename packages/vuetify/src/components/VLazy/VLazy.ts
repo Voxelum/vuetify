@@ -1,94 +1,91 @@
-// Mixins
-import Measurable from '../../mixins/measurable'
-import Toggleable from '../../mixins/toggleable'
-
-// Directives
-import intersect from '../../directives/intersect'
-
-// Utilities
-import mixins from '../../util/mixins'
+import { computed, defineComponent, ExtractPropTypes, h, PropType, Ref, SetupContext } from 'vue'
+import useMeasurable from '../../mixins/measurable'
+import { useToggleableFactory } from '../../mixins/toggleable'
 import { getSlot } from '../../util/helpers'
 
-// Types
-import { VNode } from 'vue'
-import { PropValidator } from 'vue/types/options'
+export const VLazyProps = {
+  options: {
+    type: Object,
+    // For more information on types, navigate to:
+    // https://developer.mozilla.org/en-US/docs/Web/API/Intersection_Observer_API
+    default: () => ({
+      root: undefined,
+      rootMargin: undefined,
+      threshold: undefined,
+    }),
+  } as any as PropType<IntersectionObserverInit>,
+  tag: {
+    type: String,
+    default: 'div',
+  },
+  transition: {
+    type: String,
+    default: 'fade-transition',
+  },
+}
 
-export default mixins(
-  Measurable,
-  Toggleable
-).extend({
+const useToggleable = useToggleableFactory()
+// Measurable,
+// Toggleable
+export function useVLazy(props: ExtractPropTypes<typeof VLazyProps>, context: SetupContext) {
+  const { measurableStyles } = useMeasurable(props)
+  const { isActive } = useToggleable(props, context)
+
+  const styles: Ref<object> = computed(() => {
+    return {
+      ...measurableStyles.value,
+    }
+  })
+
+  function genContent() {
+    const slot = getSlot(context)
+
+    /* istanbul ignore if */
+    if (!props.transition) return slot?.()
+
+    const children = []
+
+    if (isActive.value) children.push(slot?.())
+
+    return h('transition', {
+      props: { name: props.transition },
+    }, children)
+  }
+  function onObserve(
+    entries: IntersectionObserverEntry[],
+    observer: IntersectionObserver,
+    isIntersecting: boolean,
+  ) {
+    if (isActive.value) return
+
+    isActive.value = isIntersecting
+  }
+
+  return {
+    styles,
+    genContent,
+    onObserve,
+  }
+}
+const VLazy = defineComponent({
   name: 'VLazy',
-
-  directives: { intersect },
-
-  props: {
-    options: {
-      type: Object,
-      // For more information on types, navigate to:
-      // https://developer.mozilla.org/en-US/docs/Web/API/Intersection_Observer_API
-      default: () => ({
-        root: undefined,
-        rootMargin: undefined,
-        threshold: undefined,
-      }),
-    } as PropValidator<IntersectionObserverInit>,
-    tag: {
-      type: String,
-      default: 'div',
-    },
-    transition: {
-      type: String,
-      default: 'fade-transition',
-    },
-  },
-
-  computed: {
-    styles (): object {
-      return {
-        ...this.measurableStyles,
-      }
-    },
-  },
-
-  methods: {
-    genContent () {
-      const slot = getSlot(this)
-
-      /* istanbul ignore if */
-      if (!this.transition) return slot
-
-      const children = []
-
-      if (this.isActive) children.push(slot)
-
-      return this.$createElement('transition', {
-        props: { name: this.transition },
-      }, children)
-    },
-    onObserve (
-      entries: IntersectionObserverEntry[],
-      observer: IntersectionObserver,
-      isIntersecting: boolean,
-    ) {
-      if (this.isActive) return
-
-      this.isActive = isIntersecting
-    },
-  },
-
-  render (h): VNode {
-    return h(this.tag, {
+  props: VLazyProps,
+  setup(props, context) {
+    const { genContent, onObserve, styles } = useVLazy(props, context)
+    return h(props.tag, {
       staticClass: 'v-lazy',
-      attrs: this.$attrs,
       directives: [{
         name: 'intersect',
         value: {
-          handler: this.onObserve,
-          options: this.options,
+          handler: onObserve,
+          options: props.options,
         },
       }],
-      on: this.$listeners,
-      style: this.styles,
-    }, [this.genContent()])
+      style: styles.value,
+      ...context.attrs
+    }, [genContent()])
   },
 })
+
+export default VLazy
+

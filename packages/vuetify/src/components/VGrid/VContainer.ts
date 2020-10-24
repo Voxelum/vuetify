@@ -1,63 +1,65 @@
-import './_grid.sass'
+import { defineComponent, h, mergeProps } from 'vue'
 import './VGrid.sass'
+import './_grid.sass'
 
-import Grid from './grid'
-
-import mergeData from '../../util/mergeData'
+export const VContainerProps = {
+  id: String,
+  tag: {
+    type: String,
+    default: 'div',
+  },
+  fluid: {
+    type: Boolean,
+    default: false,
+  },
+}
 
 /* @vue/component */
-export default Grid('container').extend({
+const VContainer = defineComponent({
   name: 'v-container',
-  functional: true,
-  props: {
-    id: String,
-    tag: {
-      type: String,
-      default: 'div',
-    },
-    fluid: {
-      type: Boolean,
-      default: false,
-    },
-  },
-  render (h, { props, data, children }) {
-    let classes
-    const { attrs } = data
-    if (attrs) {
+  props: VContainerProps,
+  setup(props, context) {
+    return () => {
+      let classes
+      const attrs: typeof context.attrs = {
+        ...context.attrs
+      }
+
       // reset attrs to extract utility clases like pa-3
-      data.attrs = {}
-      classes = Object.keys(attrs).filter(key => {
+      classes = Object.keys(context.attrs).filter(key => {
         // TODO: Remove once resolved
         // https://github.com/vuejs/vue/issues/7841
         if (key === 'slot') return false
 
-        const value = attrs[key]
+        const value = context.attrs[key]
 
         // add back data attributes like data-test="foo" but do not
         // add them as classes
         if (key.startsWith('data-')) {
-          data.attrs![key] = value
+          attrs![key] = value
           return false
         }
 
         return value || typeof value === 'string'
       })
-    }
 
-    if (props.id) {
-      data.domProps = data.domProps || {}
-      data.domProps.id = props.id
-    }
+      if (props.id) {
+        attrs.id = props.id
+      }
 
-    return h(
-      props.tag,
-      mergeData(data, {
-        staticClass: 'container',
-        class: Array<any>({
-          'container--fluid': props.fluid,
-        }).concat(classes || []),
-      }),
-      children
-    )
+      return h(
+        props.tag,
+        mergeProps(attrs, {
+          staticClass: 'container',
+          class: Array<any>({
+            'container--fluid': props.fluid,
+          }).concat(classes || []),
+        }),
+        context.slots
+      )
+    }
   },
 })
+
+export default VContainer
+

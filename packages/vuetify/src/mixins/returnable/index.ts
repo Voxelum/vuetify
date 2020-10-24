@@ -1,34 +1,31 @@
-import Vue from 'vue'
+import { ExtractPropTypes, reactive, SetupContext, watch } from 'vue'
+
+export const returnableProps = {
+  returnValue: null as any,
+}
 
 /* @vue/component */
-export default Vue.extend({
-  name: 'returnable',
-
-  props: {
-    returnValue: null as any,
-  },
-
-  data: () => ({
+export default function useReturnable(props: ExtractPropTypes<typeof returnableProps>, context: SetupContext) {
+  const data = reactive({
     isActive: false,
     originalValue: null as any,
-  }),
+  })
 
-  watch: {
-    isActive (val) {
-      if (val) {
-        this.originalValue = this.returnValue
-      } else {
-        this.$emit('update:return-value', this.originalValue)
-      }
-    },
-  },
+  watch(() => data.isActive, (val) => {
+    if (val) {
+      data.originalValue = props.returnValue
+    } else {
+      context.emit('update:return-value', data.originalValue)
+    }
+  })
 
-  methods: {
-    save (value: any) {
-      this.originalValue = value
-      setTimeout(() => {
-        this.isActive = false
-      })
-    },
-  },
-})
+  function save(value: any) {
+    data.originalValue = value
+    setTimeout(() => {
+      data.isActive = false
+    })
+  }
+  return {
+    save,
+  }
+}

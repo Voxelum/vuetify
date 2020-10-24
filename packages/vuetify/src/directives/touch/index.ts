@@ -1,6 +1,6 @@
-import { VNodeDirective, VNode } from 'vue/types/vnode'
+import { Directive, VNode } from 'vue'
 import { keys } from '../../util/helpers'
-import { TouchHandlers, TouchValue, TouchWrapper } from 'vuetify/types'
+import { TouchHandlers, TouchValue, TouchWrapper } from 'types'
 
 export interface TouchStoredHandlers {
   touchstart: (e: TouchEvent) => void
@@ -8,7 +8,7 @@ export interface TouchStoredHandlers {
   touchmove: (e: TouchEvent) => void
 }
 
-interface TouchVNodeDirective extends VNodeDirective {
+interface TouchVNodeDirective extends Directive {
   value?: TouchValue
 }
 
@@ -112,9 +112,9 @@ function unbind (el: HTMLElement, binding: TouchVNodeDirective, vnode: VNode) {
   delete target._touchHandlers[vnode.context!._uid]
 }
 
-export const Touch = {
-  inserted,
-  unbind,
+export const Touch: Directive = {
+  mounted: inserted,
+  unmounted: unbind,
 }
 
 export default Touch

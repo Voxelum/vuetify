@@ -1,32 +1,32 @@
-import Vue from 'vue'
+import { computed, ExtractPropTypes, Ref } from 'vue'
 
-export default Vue.extend({
-  name: 'sizeable',
-
-  props: {
+export const sizeableProps = {
     large: Boolean,
     small: Boolean,
     xLarge: Boolean,
     xSmall: Boolean,
-  },
+}
 
-  computed: {
-    medium (): boolean {
+export default function useSizeable(props: ExtractPropTypes<typeof sizeableProps>) {
+    const medium: Ref<boolean> = computed(() => {
       return Boolean(
-        !this.xSmall &&
-        !this.small &&
-        !this.large &&
-        !this.xLarge
+        !props.xSmall &&
+        !props.small &&
+        !props.large &&
+        !props.xLarge
       )
-    },
-    sizeableClasses (): object {
+    })
+    const sizeableClasses: Ref<object> = computed(() => {
       return {
-        'v-size--x-small': this.xSmall,
-        'v-size--small': this.small,
-        'v-size--default': this.medium,
-        'v-size--large': this.large,
-        'v-size--x-large': this.xLarge,
+        'v-size--x-small': props.xSmall,
+        'v-size--small': props.small,
+        'v-size--default': medium.value,
+        'v-size--large': props.large,
+        'v-size--x-large': props.xLarge,
       }
-    },
-  },
-})
+    })
+  return {
+    medium,
+    sizeableClasses,
+  }
+}

@@ -1,171 +1,181 @@
-// Components
-import VInput from '../../components/VInput'
+import { useVInput, VInputProps } from '@components/VInput/VInput'
+import { cloneVNode, computed, ExtractPropTypes, h, mergeProps, reactive, Ref, SetupContext, VNodeProps, watch } from 'vue'
+import { comparableProps } from '../comparable'
+import useRippleable, { rippleableProps } from '../rippleable'
 
-// Mixins
-import Rippleable from '../rippleable'
-import Comparable from '../comparable'
+export const selectableProps = {
+  ...VInputProps,
+  ...rippleableProps,
+  ...comparableProps,
+  id: String,
+  inputValue: null as any,
+  falseValue: null as any,
+  trueValue: null as any,
+  multiple: {
+    type: Boolean,
+    default: null,
+  },
+  label: String,
+}
 
-// Utilities
-import mixins from '../../util/mixins'
-
-export function prevent (e: Event) {
+export function prevent(e: Event) {
   e.preventDefault()
 }
 
 /* @vue/component */
-export default mixins(
-  VInput,
-  Rippleable,
-  Comparable
-).extend({
-  name: 'selectable',
+// export default mixins(
+//   VInput,
+//   Rippleable,
+//   Comparable
 
-  model: {
-    prop: 'inputValue',
-    event: 'change',
-  },
 
-  props: {
-    id: String,
-    inputValue: null as any,
-    falseValue: null as any,
-    trueValue: null as any,
-    multiple: {
-      type: Boolean,
-      default: null,
-    },
-    label: String,
-  },
+// model: {
+//   prop: 'inputValue',
+//   event: 'change',
+// },
 
-  data () {
-    return {
-      hasColor: this.inputValue,
-      lazyValue: this.inputValue,
+export function useSelectable(props: ExtractPropTypes<typeof selectableProps>, context: SetupContext) {
+  const input = useVInput(props, context, 'change')
+  const {
+    appIsDark,
+    isDark,
+    internalValue,
+    isDisabled,
+    validationState,
+    computedId,
+    genLabel: _genLabel,
+    isInteractive,
+    validate,
+    isFocused,
+  } = input
+  const { } = useRippleable(props)
+  const data = reactive({
+    hasColor: props.inputValue,
+    lazyValue: props.inputValue,
+  })
+
+  const computedColor: Ref<string | undefined> = computed(() => {
+    if (!isActive.value) return undefined
+    if (props.color) return props.color
+    if (isDark.value && !appIsDark.value) return 'white'
+    return 'primary'
+  })
+  const isMultiple: Ref<boolean> = computed(() => {
+    return props.multiple === true || (props.multiple === null && Array.isArray(internalValue.value))
+  })
+  const isActive: Ref<boolean> = computed(() => {
+    const value = props.value
+    const input = internalValue.value
+
+    if (isMultiple.value) {
+      if (!Array.isArray(input)) return false
+
+      return input.some(item => props.valueComparator(item, value))
     }
-  },
 
-  computed: {
-    computedColor (): string | undefined {
-      if (!this.isActive) return undefined
-      if (this.color) return this.color
-      if (this.isDark && !this.appIsDark) return 'white'
-      return 'primary'
-    },
-    isMultiple (): boolean {
-      return this.multiple === true || (this.multiple === null && Array.isArray(this.internalValue))
-    },
-    isActive (): boolean {
-      const value = this.value
-      const input = this.internalValue
+    if (props.trueValue === undefined || props.falseValue === undefined) {
+      return value
+        ? props.valueComparator(value, input)
+        : Boolean(input)
+    }
 
-      if (this.isMultiple) {
-        if (!Array.isArray(input)) return false
+    return props.valueComparator(input, props.trueValue)
+  })
+  const isDirty: Ref<boolean> = computed(() => {
+    return isActive.value
+  })
+  const rippleState: Ref<string | undefined> = computed(() => {
+    return !isDisabled.value && !validationState.value
+      ? undefined
+      : validationState.value
+  })
 
-        return input.some(item => this.valueComparator(item, value))
+  watch(() => props.inputValue, (val) => {
+    data.lazyValue = val
+    data.hasColor = val
+  })
+
+  function genLabel() {
+    const label = _genLabel()
+
+    if (!label) return label
+
+    return cloneVNode(label, {
+      // Label shouldn't cause the input to focus
+      onClick: prevent
+    })
+  }
+  function genInput(type: string, attrs: VNodeProps | Record<string, unknown>) {
+    return h('input', mergeProps({
+      'aria-checked': isActive.value.toString(),
+      disabled: isDisabled.value,
+      id: computedId.value,
+      role: type,
+      type,
+      value: props.value,
+      checked: isActive.value,
+      onBlur,
+      onChange,
+      onFocus,
+      onKeydown,
+      ref: 'input',
+    }, attrs))
+  }
+  function onBlur() {
+    isFocused.value = false
+  }
+  function onClick(e: Event) {
+    onChange()
+    context.emit('click', e)
+  }
+  function onChange() {
+    if (!isInteractive.value) return
+
+    const value = props.value
+    let input = internalValue.value
+
+    if (isMultiple.value) {
+      if (!Array.isArray(input)) {
+        input = []
       }
 
-      if (this.trueValue === undefined || this.falseValue === undefined) {
-        return value
-          ? this.valueComparator(value, input)
-          : Boolean(input)
+      const length = input.length
+
+      input = input.filter((item: any) => !props.valueComparator(item, value))
+
+      if (input.length === length) {
+        input.push(value)
       }
+    } else if (props.trueValue !== undefined && props.falseValue !== undefined) {
+      input = props.valueComparator(input, props.trueValue) ? props.falseValue : props.trueValue
+    } else if (value) {
+      input = props.valueComparator(input, value) ? null : value
+    } else {
+      input = !input
+    }
 
-      return this.valueComparator(input, this.trueValue)
-    },
-    isDirty (): boolean {
-      return this.isActive
-    },
-    rippleState (): string | undefined {
-      return !this.isDisabled && !this.validationState
-        ? undefined
-        : this.validationState
-    },
-  },
-
-  watch: {
-    inputValue (val) {
-      this.lazyValue = val
-      this.hasColor = val
-    },
-  },
-
-  methods: {
-    genLabel () {
-      const label = VInput.options.methods.genLabel.call(this)
-
-      if (!label) return label
-
-      label!.data!.on = {
-        // Label shouldn't cause the input to focus
-        click: prevent,
-      }
-
-      return label
-    },
-    genInput (type: string, attrs: object) {
-      return this.$createElement('input', {
-        attrs: Object.assign({
-          'aria-checked': this.isActive.toString(),
-          disabled: this.isDisabled,
-          id: this.computedId,
-          role: type,
-          type,
-        }, attrs),
-        domProps: {
-          value: this.value,
-          checked: this.isActive,
-        },
-        on: {
-          blur: this.onBlur,
-          change: this.onChange,
-          focus: this.onFocus,
-          keydown: this.onKeydown,
-          click: prevent,
-        },
-        ref: 'input',
-      })
-    },
-    onBlur () {
-      this.isFocused = false
-    },
-    onClick (e: Event) {
-      this.onChange()
-      this.$emit('click', e)
-    },
-    onChange () {
-      if (!this.isInteractive) return
-
-      const value = this.value
-      let input = this.internalValue
-
-      if (this.isMultiple) {
-        if (!Array.isArray(input)) {
-          input = []
-        }
-
-        const length = input.length
-
-        input = input.filter((item: any) => !this.valueComparator(item, value))
-
-        if (input.length === length) {
-          input.push(value)
-        }
-      } else if (this.trueValue !== undefined && this.falseValue !== undefined) {
-        input = this.valueComparator(input, this.trueValue) ? this.falseValue : this.trueValue
-      } else if (value) {
-        input = this.valueComparator(input, value) ? null : value
-      } else {
-        input = !input
-      }
-
-      this.validate(true, input)
-      this.internalValue = input
-      this.hasColor = input
-    },
-    onFocus () {
-      this.isFocused = true
-    },
-    /** @abstract */
-    onKeydown (e: Event) {},
-  },
-})
+    validate(true, input)
+    internalValue.value = input
+    data.hasColor = input
+  }
+  function onFocus() {
+    isFocused.value = true
+  }
+  /** @abstract */
+  function onKeydown(e: Event) { }
+  return {
+    ...input,
+    computedColor,
+    isMultiple,
+    isActive,
+    isDirty,
+    rippleState,
+    genLabel,
+    genInput,
+    onBlur,
+    onClick,
+    onChange,
+    onFocus,
+    onKeydown,
+  }
+}

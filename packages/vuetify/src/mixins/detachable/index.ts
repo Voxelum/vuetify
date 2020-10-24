@@ -1,23 +1,22 @@
-// Mixins
-import Bootable from '../bootable'
-
+import { useIsDestroyed } from '@composables/destroy'
+import useBootable from '@mixins/bootable/index.ts'
+import { ExtractPropTypes, nextTick, onBeforeUnmount, onMounted, PropType, reactive, Ref, ref, SetupContext, VNode, watch } from 'vue'
+import { consoleWarn } from '../../util/console'
 // Utilities
 import { getObjectValueByPath } from '../../util/helpers'
-import mixins, { ExtractVue } from '../../util/mixins'
-import { consoleWarn } from '../../util/console'
 
-// Types
-import Vue, { PropOptions } from 'vue'
-import { VNode } from 'vue/types'
-
-interface options extends Vue {
-  $el: HTMLElement
-  $refs: {
-    content: HTMLElement
-  }
+export const detachableProps = {
+  attach: {
+    default: false,
+    validator: validateAttachTarget,
+  } as any as PropType<boolean | string | Element>,
+  contentClass: {
+    type: String,
+    default: '',
+  },
 }
 
-function validateAttachTarget (val: any) {
+function validateAttachTarget(val: any) {
   const type = typeof val
 
   if (type === 'boolean' || type === 'string') return true
@@ -26,126 +25,91 @@ function validateAttachTarget (val: any) {
 }
 
 /* @vue/component */
-export default mixins<options &
-  /* eslint-disable indent */
-  ExtractVue<typeof Bootable>
-  /* eslint-enable indent */
->(Bootable).extend({
-  name: 'detachable',
-
-  props: {
-    attach: {
-      default: false,
-      validator: validateAttachTarget,
-    } as PropOptions<boolean | string | Element>,
-    contentClass: {
-      type: String,
-      default: '',
-    },
-  },
-
-  data: () => ({
+export function useDetachable(props: ExtractPropTypes<typeof detachableProps>, context: SetupContext) {
+  const { hasContent } = useBootable(props, context)
+  const content: Ref<HTMLElement | null> = ref(null)
+  const _isDestroyed = useIsDestroyed()
+  const data = reactive({
     activatorNode: null as null | VNode | VNode[],
     hasDetached: false,
-  }),
+  })
 
-  watch: {
-    attach () {
-      this.hasDetached = false
-      this.initDetach()
-    },
-    hasContent () {
-      this.$nextTick(this.initDetach)
-    },
-  },
+  watch(() => props.attach, () => {
+    data.hasDetached = false
+    initDetach()
+  })
+  watch(hasContent, () => {
+    nextTick(initDetach)
+  })
 
-  beforeMount () {
-    this.$nextTick(() => {
-      if (this.activatorNode) {
-        const activator = Array.isArray(this.activatorNode) ? this.activatorNode : [this.activatorNode]
+  onMounted(() => {
+    hasContent.value && initDetach()
+  })
 
-        activator.forEach(node => {
-          if (!node.elm) return
-          if (!this.$el.parentNode) return
-
-          const target = this.$el === this.$el.parentNode.firstChild
-            ? this.$el
-            : this.$el.nextSibling
-
-          this.$el.parentNode.insertBefore(node.elm, target)
-        })
-      }
-    })
-  },
-
-  mounted () {
-    this.hasContent && this.initDetach()
-  },
-
-  deactivated () {
-    this.isActive = false
-  },
-
-  beforeDestroy () {
+  onBeforeUnmount(() => {
     // IE11 Fix
-    try {
-      if (
-        this.$refs.content &&
-        this.$refs.content.parentNode
-      ) {
-        this.$refs.content.parentNode.removeChild(this.$refs.content)
-      }
+    
+    // vue 3 not support IE11
+    // try {
+    //   if (
+    //     content.value &&
+    //     content.value.parentNode
+    //   ) {
+    //     content.value.parentNode.removeChild(content.value)
+    //   }
 
-      if (this.activatorNode) {
-        const activator = Array.isArray(this.activatorNode) ? this.activatorNode : [this.activatorNode]
-        activator.forEach(node => {
-          node.elm &&
-            node.elm.parentNode &&
-            node.elm.parentNode.removeChild(node.elm)
-        })
-      }
-    } catch (e) { console.log(e) }
-  },
+    //   if (data.activatorNode) {
+    //     const activator = Array.isArray(data.activatorNode) ? data.activatorNode : [data.activatorNode]
+    //     activator.forEach(node => {
+    //       node.elm &&
+    //         node.elm.parentNode &&
+    //         node.elm.parentNode.removeChild(node.elm)
+    //     })
+    //   }
+    // } catch (e) { console.log(e) }
+  })
 
-  methods: {
-    getScopeIdAttrs () {
-      const scopeId = getObjectValueByPath(this.$vnode, 'context.$options._scopeId')
+  function getScopeIdAttrs() {
+    const scopeId = getObjectValueByPath(context.vnode, 'context.$options._scopeId')
 
-      return scopeId && {
-        [scopeId]: '',
-      }
-    },
-    initDetach () {
-      if (this._isDestroyed ||
-        !this.$refs.content ||
-        this.hasDetached ||
-        // Leave menu in place if attached
-        // and dev has not changed target
-        this.attach === '' || // If used as a boolean prop (<v-menu attach>)
-        this.attach === true || // If bound to a boolean (<v-menu :attach="true">)
-        this.attach === 'attach' // If bound as boolean prop in pug (v-menu(attach))
-      ) return
+    return scopeId && {
+      [scopeId]: '',
+    }
+  }
+  function initDetach() {
+    if (_isDestroyed.value ||
+      !content.value ||
+      data.hasDetached ||
+      // Leave menu in place if attached
+      // and dev has not changed target
+      props.attach === '' || // If used as a boolean prop (<v-menu attach>)
+      props.attach === true || // If bound to a boolean (<v-menu :attach="true">)
+      props.attach === 'attach' // If bound as boolean prop in pug (v-menu(attach))
+    ) return
 
-      let target
-      if (this.attach === false) {
-        // Default, detach to app
-        target = document.querySelector('[data-app]')
-      } else if (typeof this.attach === 'string') {
-        // CSS selector
-        target = document.querySelector(this.attach)
-      } else {
-        // DOM Element
-        target = this.attach
-      }
+    let target
+    if (props.attach === false) {
+      // Default, detach to app
+      target = document.querySelector('[data-app]')
+    } else if (typeof props.attach === 'string') {
+      // CSS selector
+      target = document.querySelector(props.attach)
+    } else {
+      // DOM Element
+      target = props.attach
+    }
 
-      if (!target) {
-        consoleWarn(`Unable to locate target ${this.attach || '[data-app]'}`, this)
-        return
-      }
+    if (!target) {
+      consoleWarn(`Unable to locate target ${props.attach || '[data-app]'}`, context)
+      return
+    }
 
-      target.appendChild(this.$refs.content)
+    target.appendChild(content.value)
 
-      this.hasDetached = true
-    },
-  },
-})
+    data.hasDetached = true
+  }
+  return {
+    getScopeIdAttrs,
+    initDetach,
+  }
+}

@@ -1,8 +1,9 @@
 import { VNode, VNodeDirective } from 'vue/types'
 import { VuetifyIcon } from 'vuetify/types/services/icons'
 import { DataTableCompareFunction, SelectItemKey, ItemGroup } from 'vuetify/types'
+import { SetupContext } from 'vue'
 
-export function createSimpleFunctional (
+export function createSimpleFunctional(
   c: string,
   el = 'div',
   name?: string
@@ -12,7 +13,7 @@ export function createSimpleFunctional (
 
     functional: true,
 
-    render (h, { data, children }): VNode {
+    render(h, { data, children }): VNode {
       data.staticClass = (`${c} ${data.staticClass || ''}`).trim()
 
       return h(el, data, children)
@@ -21,7 +22,7 @@ export function createSimpleFunctional (
 }
 
 export type BindingConfig = Pick<VNodeDirective, 'arg' | 'modifiers' | 'value'>
-export function directiveConfig (binding: BindingConfig, defaults = {}): VNodeDirective {
+export function directiveConfig(binding: BindingConfig, defaults = {}): VNodeDirective {
   return {
     ...defaults,
     ...binding.modifiers,
@@ -30,7 +31,7 @@ export function directiveConfig (binding: BindingConfig, defaults = {}): VNodeDi
   }
 }
 
-export function getNestedValue (obj: any, path: (string | number)[], fallback?: any): any {
+export function getNestedValue(obj: any, path: (string | number)[], fallback?: any): any {
   const last = path.length - 1
 
   if (last < 0) return obj === undefined ? fallback : obj
@@ -47,7 +48,7 @@ export function getNestedValue (obj: any, path: (string | number)[], fallback?: 
   return obj[path[last]] === undefined ? fallback : obj[path[last]]
 }
 
-export function deepEqual (a: any, b: any): boolean {
+export function deepEqual(a: any, b: any): boolean {
   if (a === b) return true
 
   if (a instanceof Date && b instanceof Date) {
@@ -70,7 +71,7 @@ export function deepEqual (a: any, b: any): boolean {
   return props.every(p => deepEqual(a[p], b[p]))
 }
 
-export function getObjectValueByPath (obj: any, path: string, fallback?: any): any {
+export function getObjectValueByPath(obj: any, path: string, fallback?: any): any {
   // credit: http://stackoverflow.com/questions/6491463/accessing-nested-javascript-objects-with-string-key#comment55278413_6491621
   if (obj == null || !path || typeof path !== 'string') return fallback
   if (obj[path] !== undefined) return obj[path]
@@ -79,7 +80,7 @@ export function getObjectValueByPath (obj: any, path: string, fallback?: any): a
   return getNestedValue(obj, path.split('.'), fallback)
 }
 
-export function getPropertyFromItem (
+export function getPropertyFromItem(
   item: object,
   property: SelectItemKey,
   fallback?: any
@@ -99,11 +100,11 @@ export function getPropertyFromItem (
   return typeof value === 'undefined' ? fallback : value
 }
 
-export function createRange (length: number): number[] {
+export function createRange(length: number): number[] {
   return Array.from({ length }, (v, k) => k)
 }
 
-export function getZIndex (el?: Element | null): number {
+export function getZIndex(el?: Element | null): number {
   if (!el || el.nodeType !== Node.ELEMENT_NODE) return 0
 
   const index = +window.getComputedStyle(el).getPropertyValue('z-index')
@@ -118,11 +119,11 @@ const tagsToReplace = {
   '>': '&gt;',
 } as any
 
-export function escapeHTML (str: string): string {
+export function escapeHTML(str: string): string {
   return str.replace(/[&<>]/g, tag => tagsToReplace[tag] || tag)
 }
 
-export function filterObjectOnKeys<T, K extends keyof T> (obj: T, keys: K[]): { [N in K]: T[N] } {
+export function filterObjectOnKeys<T, K extends keyof T>(obj: T, keys: K[]): { [N in K]: T[N] } {
   const filtered = {} as { [N in K]: T[N] }
 
   for (let i = 0; i < keys.length; i++) {
@@ -135,7 +136,7 @@ export function filterObjectOnKeys<T, K extends keyof T> (obj: T, keys: K[]): { 
   return filtered
 }
 
-export function convertToUnit (str: string | number | null | undefined, unit = 'px'): string | undefined {
+export function convertToUnit(str: string | number | null | undefined, unit = 'px'): string | undefined {
   if (str == null || str === '') {
     return undefined
   } else if (isNaN(+str!)) {
@@ -145,11 +146,11 @@ export function convertToUnit (str: string | number | null | undefined, unit = '
   }
 }
 
-export function kebabCase (str: string): string {
+export function kebabCase(str: string): string {
   return (str || '').replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase()
 }
 
-export function isObject (obj: any): obj is object {
+export function isObject(obj: any): obj is object {
   return obj !== null && typeof obj === 'object'
 }
 
@@ -175,7 +176,7 @@ export const keyCodes = Object.freeze({
 
 // This remaps internal names like '$cancel' or '$vuetify.icons.cancel'
 // to the current name or component for that icon.
-export function remapInternalIcon (vm: Vue, iconName: string): VuetifyIcon {
+export function remapInternalIcon(vm: SetupContext, iconName: string): VuetifyIcon {
   if (!iconName.startsWith('$')) {
     return iconName
   }
@@ -188,7 +189,7 @@ export function remapInternalIcon (vm: Vue, iconName: string): VuetifyIcon {
   return getObjectValueByPath(vm, iconPath, iconName)
 }
 
-export function keys<O> (o: O) {
+export function keys<O>(o: O) {
   return Object.keys(o) as (keyof O)[]
 }
 
@@ -203,7 +204,7 @@ export const camelize = (str: string): string => {
 /**
  * Returns the set difference of B and A, i.e. the set of elements in B but not in A
  */
-export function arrayDiff (a: any[], b: any[]): any[] {
+export function arrayDiff(a: any[], b: any[]): any[] {
   const diff: any[] = []
   for (let i = 0; i < b.length; i++) {
     if (a.indexOf(b[i]) < 0) diff.push(b[i])
@@ -214,11 +215,11 @@ export function arrayDiff (a: any[], b: any[]): any[] {
 /**
  * Makes the first character of a string uppercase
  */
-export function upperFirst (str: string): string {
+export function upperFirst(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1)
 }
 
-export function groupItems<T extends any = any> (
+export function groupItems<T extends any = any>(
   items: T[],
   groupBy: string[],
   groupDesc: boolean[]
@@ -241,9 +242,9 @@ export function groupItems<T extends any = any> (
   return groups
 }
 
-export function wrapInArray<T> (v: T | T[] | null | undefined): T[] { return v != null ? Array.isArray(v) ? v : [v] : [] }
+export function wrapInArray<T>(v: T | T[] | null | undefined): T[] { return v != null ? Array.isArray(v) ? v : [v] : [] }
 
-export function sortItems<T extends any = any> (
+export function sortItems<T extends any = any>(
   items: T[],
   sortBy: string[],
   sortDesc: boolean[],
@@ -289,14 +290,14 @@ export function sortItems<T extends any = any> (
   })
 }
 
-export function defaultFilter (value: any, search: string | null, item: any) {
+export function defaultFilter(value: any, search: string | null, item: any) {
   return value != null &&
     search != null &&
     typeof value !== 'boolean' &&
     value.toString().toLocaleLowerCase().indexOf(search.toLocaleLowerCase()) !== -1
 }
 
-export function searchItems<T extends any = any> (items: T[], search: string): T[] {
+export function searchItems<T extends any = any>(items: T[], search: string): T[] {
   if (!search) return items
   search = search.toString().toLowerCase()
   if (search.trim() === '') return items
@@ -310,15 +311,15 @@ export function searchItems<T extends any = any> (items: T[], search: string): T
  *  - 'scoped' for old style scoped slots (`<template slot="default" slot-scope="data">`) or bound v-slot (`#default="data"`)
  *  - 'v-slot' for unbound v-slot (`#default`) - only if the third param is true, otherwise counts as scoped
  */
-export function getSlotType<T extends boolean = false> (vm: Vue, name: string, split?: T): (T extends true ? 'v-slot' : never) | 'normal' | 'scoped' | void {
-  if (vm.$slots[name] && vm.$scopedSlots[name] && (vm.$scopedSlots[name] as any).name) {
+export function getSlotType<T extends boolean = false>(vm: SetupContext, name: string, split?: T): (T extends true ? 'v-slot' : never) | 'normal' | 'scoped' | void {
+  if (vm.slots[name] && vm.$scopedSlots[name] && (vm.$scopedSlots[name] as any).name) {
     return split ? 'v-slot' as any : 'scoped'
   }
-  if (vm.$slots[name]) return 'normal'
+  if (vm.slots[name]) return 'normal'
   if (vm.$scopedSlots[name]) return 'scoped'
 }
 
-export function debounce (fn: Function, delay: number) {
+export function debounce(fn: Function, delay: number) {
   let timeoutId = 0 as any
   return (...args: any[]) => {
     clearTimeout(timeoutId)
@@ -326,7 +327,7 @@ export function debounce (fn: Function, delay: number) {
   }
 }
 
-export function throttle<T extends (...args: any[]) => any> (fn: T, limit: number) {
+export function throttle<T extends (...args: any[]) => any>(fn: T, limit: number) {
   let throttling = false
   return (...args: Parameters<T>): void | ReturnType<T> => {
     if (!throttling) {
@@ -337,31 +338,30 @@ export function throttle<T extends (...args: any[]) => any> (fn: T, limit: numbe
   }
 }
 
-export function getPrefixedScopedSlots (prefix: string, scopedSlots: any) {
+export function getPrefixedScopedSlots(prefix: string, scopedSlots: any) {
   return Object.keys(scopedSlots).filter(k => k.startsWith(prefix)).reduce((obj: any, k: string) => {
     obj[k.replace(prefix, '')] = scopedSlots[k]
     return obj
   }, {})
 }
 
-export function getSlot (vm: Vue, name = 'default', data?: object | (() => object), optional = false) {
-  if (vm.$scopedSlots[name]) {
-    return vm.$scopedSlots[name]!(data instanceof Function ? data() : data)
-  } else if (vm.$slots[name] && (!data || optional)) {
-    return vm.$slots[name]
+export function getSlot(context: SetupContext, name = 'default', data?: object | (() => object), optional = false) {
+  const slot = context.slots[name]
+  if (slot && (!data || optional)) {
+    return slot(typeof data === 'object' ? data : typeof data === 'function' ? data() : undefined)
   }
   return undefined
 }
 
-export function clamp (value: number, min = 0, max = 1) {
+export function clamp(value: number, min = 0, max = 1) {
   return Math.max(min, Math.min(max, value))
 }
 
-export function padEnd (str: string, length: number, char = '0') {
+export function padEnd(str: string, length: number, char = '0') {
   return str + char.repeat(Math.max(0, length - str.length))
 }
 
-export function chunk (str: string, size = 1) {
+export function chunk(str: string, size = 1) {
   const chunked: string[] = []
   let index = 0
   while (index < str.length) {
@@ -371,7 +371,7 @@ export function chunk (str: string, size = 1) {
   return chunked
 }
 
-export function humanReadableFileSize (bytes: number, binary = false): string {
+export function humanReadableFileSize(bytes: number, binary = false): string {
   const base = binary ? 1024 : 1000
   if (bytes < base) {
     return `${bytes} B`
@@ -386,7 +386,7 @@ export function humanReadableFileSize (bytes: number, binary = false): string {
   return `${bytes.toFixed(1)} ${prefix[unit]}B`
 }
 
-export function camelizeObjectKeys (obj: Record<string, any> | null | undefined) {
+export function camelizeObjectKeys(obj: Record<string, any> | null | undefined) {
   if (!obj) return {}
 
   return Object.keys(obj).reduce((o: any, key: string) => {
@@ -395,7 +395,7 @@ export function camelizeObjectKeys (obj: Record<string, any> | null | undefined)
   }, {})
 }
 
-export function mergeDeep (
+export function mergeDeep(
   source: Dictionary<any> = {},
   target: Dictionary<any> = {}
 ) {
@@ -420,6 +420,6 @@ export function mergeDeep (
   return source
 }
 
-export function fillArray<T> (length: number, obj: T) {
+export function fillArray<T>(length: number, obj: T) {
   return Array(length).fill(obj)
 }

@@ -1,44 +1,44 @@
+import { computed, defineComponent, ExtractPropTypes, h, mergeProps, provide, Ref, SetupContext } from 'vue'
+import useThemeable, { themeableProps } from '../../mixins/themeable'
 // Styles
 import './VTimeline.sass'
 
-// Types
-import { VNode } from 'vue'
-import mixins from '../../util/mixins'
+export const VTimelineProps = {
+  ...themeableProps,
+  alignTop: Boolean,
+  dense: Boolean,
+  reverse: Boolean,
+}
 
-// Mixins
-import Themeable from '../../mixins/themeable'
-
-export default mixins(
-  Themeable
+// Themeable
 /* @vue/component */
-).extend({
+export function useVTimeline(props: ExtractPropTypes<typeof VTimelineProps>, context: SetupContext) {
+  const { themeClasses } = useThemeable(props)
+
+  const classes: Ref<{}> = computed(() => {
+    return {
+      'v-timeline--align-top': props.alignTop,
+      'v-timeline--dense': props.dense,
+      'v-timeline--reverse': props.reverse,
+      ...themeClasses,
+    }
+  })
+
+  provide('timeline', props)
+
+  return {
+    classes,
+  }
+}
+const VTimeline = defineComponent({
   name: 'v-timeline',
-
-  provide (): object {
-    return { timeline: this }
-  },
-
-  props: {
-    alignTop: Boolean,
-    dense: Boolean,
-    reverse: Boolean,
-  },
-
-  computed: {
-    classes (): {} {
-      return {
-        'v-timeline--align-top': this.alignTop,
-        'v-timeline--dense': this.dense,
-        'v-timeline--reverse': this.reverse,
-        ...this.themeClasses,
-      }
-    },
-  },
-
-  render (h): VNode {
-    return h('div', {
-      staticClass: 'v-timeline',
-      class: this.classes,
-    }, this.$slots.default)
+  props: VTimelineProps,
+  setup(props, context) {
+    const { classes } = useVTimeline(props, context)
+    return () => h('div', mergeProps({
+      class: 'v-timeline',
+    }, { class: classes.value }, context.attrs), context.slots.default?.())
   },
 })
+
+export default VTimeline

@@ -1,57 +1,65 @@
+import { computed, defineComponent, ExtractPropTypes, h, Ref, SetupContext, VNode } from 'vue'
+// Mixins
+import useMeasurable, { measurableProps, NumberOrNumberString } from '../../mixins/measurable'
 import './VResponsive.sass'
 
-// Mixins
-import Measurable, { NumberOrNumberString } from '../../mixins/measurable'
-
-// Types
-import { VNode } from 'vue'
-
 // Utils
-import mixins from '../../util/mixins'
+
+export const VResponsiveProps = {
+  ...measurableProps,
+  aspectRatio: [String, Number] as NumberOrNumberString,
+}
 
 /* @vue/component */
-export default mixins(Measurable).extend({
+export function useVResponsive(props: ExtractPropTypes<typeof VResponsiveProps>, context: SetupContext) {
+  const { measurableStyles } = useMeasurable(props)
+  const computedAspectRatio: Ref<number> = computed(() => {
+    return Number(props.aspectRatio)
+  })
+  const aspectStyle: Ref<object | undefined> = computed(() => {
+    return computedAspectRatio.value
+      ? { paddingBottom: (1 / computedAspectRatio.value) * 100 + '%' }
+      : undefined
+  })
+  const __cachedSizer: Ref<VNode | []> = computed(() => {
+    if (!aspectStyle.value) return []
+
+    return h('div', {
+      style: aspectStyle.value,
+      staticClass: 'v-responsive__sizer',
+    })
+  })
+
+  function genContent(): VNode {
+    return h('div', {
+      staticClass: 'v-responsive__content',
+    }, context.slots.default)
+  }
+
+  return {
+    measurableStyles,
+    computedAspectRatio,
+    aspectStyle,
+    __cachedSizer,
+    genContent,
+  }
+}
+
+const VResponsive = defineComponent({
   name: 'v-responsive',
-
-  props: {
-    aspectRatio: [String, Number] as NumberOrNumberString,
-  },
-
-  computed: {
-    computedAspectRatio (): number {
-      return Number(this.aspectRatio)
-    },
-    aspectStyle (): object | undefined {
-      return this.computedAspectRatio
-        ? { paddingBottom: (1 / this.computedAspectRatio) * 100 + '%' }
-        : undefined
-    },
-    __cachedSizer (): VNode | [] {
-      if (!this.aspectStyle) return []
-
-      return this.$createElement('div', {
-        style: this.aspectStyle,
-        staticClass: 'v-responsive__sizer',
-      })
-    },
-  },
-
-  methods: {
-    genContent (): VNode {
-      return this.$createElement('div', {
-        staticClass: 'v-responsive__content',
-      }, this.$slots.default)
-    },
-  },
-
-  render (h): VNode {
+  props: VResponsiveProps,
+  setup(props, context) {
+    const { genContent, __cachedSizer, measurableStyles } = useVResponsive(props, context)
     return h('div', {
       staticClass: 'v-responsive',
-      style: this.measurableStyles,
-      on: this.$listeners,
+      style: measurableStyles.value,
+      ...context.attrs,
     }, [
-      this.__cachedSizer,
-      this.genContent(),
+      __cachedSizer.value,
+      genContent(),
     ])
   },
 })
+
+export default VResponsive
+

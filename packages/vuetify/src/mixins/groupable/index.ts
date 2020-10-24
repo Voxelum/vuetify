@@ -1,73 +1,74 @@
+import { computed, ExtractPropTypes, inject, onBeforeUnmount, reactive, SetupContext, toRefs } from 'vue'
 // Mixins
-import { Registrable, inject as RegistrableInject } from '../registrable'
+import { registrable, RegistrableKey } from '../registrable'
 
-// Utilities
-import { ExtractVue } from '../../util/mixins'
-import { VueConstructor } from 'vue'
-import { PropValidator } from 'vue/types/options'
-
-/* eslint-disable-next-line no-use-before-define */
-export type Groupable<T extends string, C extends VueConstructor | null = null> = VueConstructor<ExtractVue<Registrable<T, C>> & {
-  activeClass: string
-  isActive: boolean
-  disabled: boolean
-  groupClasses: object
-  toggle (): void
-}>
-
-export function factory<T extends string, C extends VueConstructor | null = null> (
+export const groupableProps = <T extends RegistrableKey>(
   namespace: T,
-  child?: string,
-  parent?: string
-): Groupable<T, C> {
-  return RegistrableInject<T, C>(namespace, child, parent).extend({
-    name: 'groupable',
-
-    props: {
-      activeClass: {
-        type: String,
-        default (): string | undefined {
-          if (!this[namespace]) return undefined
-
-          return this[namespace].activeClass
-        },
-      } as any as PropValidator<string>,
-      disabled: Boolean,
+) => ({
+  activeClass: {
+    type: String,
+    default(): string | undefined {
+      const value = inject(namespace, null as any)
+      if (!value) return undefined
+      return value.activeClass // TODO: check this
     },
+  } /* as any as PropValidator<string> */,
+  disabled: Boolean,
+})
 
-    data () {
-      return {
-        isActive: false,
-      }
-    },
+export const GroupableKey: RegistrableKey = 'itemGroups'
 
-    computed: {
-      groupClasses (): object {
-        if (!this.activeClass) return {}
-
-        return {
-          [this.activeClass]: this.isActive,
-        }
-      },
-    },
-
-    created () {
-      this[namespace] && (this[namespace] as any).register(this)
-    },
-
-    beforeDestroy () {
-      this[namespace] && (this[namespace] as any).unregister(this)
-    },
-
-    methods: {
-      toggle () {
-        this.$emit('change')
-      },
-    },
-  })
+export function groupableFactory<T extends RegistrableKey>(key: T, child?: string, parent?: string) {
+  const _groupableProps = groupableProps(key)
+  const useGroupable = useGroupableFactory(key, child, parent)
+  return {
+    groupableProps: _groupableProps,
+    useGroupable,
+  }
 }
 
-/* eslint-disable-next-line no-redeclare */
-const Groupable = factory('itemGroup')
+export interface GroupableInstance {
+  isActive: boolean;
+  groupClasses: { [x: string]: string };
+  toggle: () => void;
+}
 
-export default Groupable
+export function useGroupableFactory<T extends RegistrableKey>(key: T, child?: string, parent?: string) {
+  function useGroupable(props: ExtractPropTypes<ReturnType<typeof groupableProps>>, context: SetupContext) {
+    const injected = inject(key, registrable(child, parent))
+    const data = reactive({ isActive: false })
+    const groupClasses = computed(() => {
+      if (!props.activeClass) return {}
+      return {
+        [props.activeClass]: data.isActive,
+      }
+    })
+
+    function toggle() {
+      context.emit('change')
+    }
+
+    const result = {
+      ...toRefs(data),
+      groupClasses,
+      toggle,
+    }
+
+    type Result = (typeof result) & ({ [K in T]: typeof injected })
+
+    const reactiveResult = reactive(result)
+    injected && (injected).register(reactiveResult)
+
+    onBeforeUnmount(() => {
+      injected && (injected).unregister(reactiveResult)
+    })
+
+    return {
+      ...result,
+      [key]: injected,
+    } as Result
+  }
+  return useGroupable
+}
+
+export default useGroupableFactory(GroupableKey)

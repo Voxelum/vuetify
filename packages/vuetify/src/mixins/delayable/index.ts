@@ -1,4 +1,16 @@
-import Vue from 'vue'
+import { ExtractPropTypes, reactive } from 'vue'
+
+export const delayableProps = {
+  openDelay: {
+    type: [Number, String],
+    default: 0,
+  },
+  closeDelay: {
+    type: [Number, String],
+    default: 0,
+  },
+  isActive: Boolean,
+}
 
 /**
  * Delayable
@@ -7,44 +19,39 @@ import Vue from 'vue'
  *
  * Changes the open or close delay time for elements
  */
-export default Vue.extend<Vue & { isActive?: boolean }>().extend({
-  name: 'delayable',
-
-  props: {
-    openDelay: {
-      type: [Number, String],
-      default: 0,
-    },
-    closeDelay: {
-      type: [Number, String],
-      default: 0,
-    },
-  },
-
-  data: () => ({
+export default function useDelayable(props: ExtractPropTypes<typeof delayableProps>) {
+  const data = reactive({
     openTimeout: undefined as number | undefined,
     closeTimeout: undefined as number | undefined,
-  }),
+  })
 
-  methods: {
-    /**
-     * Clear any pending delay timers from executing
-     */
-    clearDelay (): void {
-      clearTimeout(this.openTimeout)
-      clearTimeout(this.closeTimeout)
-    },
-    /**
-     * Runs callback after a specified delay
-     */
-    runDelay (type: 'open' | 'close', cb?: () => void): void {
-      this.clearDelay()
+  /**
+   * Clear any pending delay timers from executing
+   */
+  function clearDelay(): void {
+    clearTimeout(data.openTimeout)
+    clearTimeout(data.closeTimeout)
+  }
+  /**
+   * Runs callback after a specified delay
+   */
+  function runDelay(type: 'open' | 'close', cb?: () => void): void {
+    clearDelay()
 
-      const delay = parseInt((this as any)[`${type}Delay`], 10)
-
-      ;(this as any)[`${type}Timeout`] = setTimeout(cb || (() => {
-        this.isActive = { open: true, close: false }[type]
+    if (type === 'open') {
+      const delay = parseInt(props.openDelay, 10)
+      data.openTimeout = setTimeout(cb || (() => {
+        props.isActive = { open: true, close: false }[type]
       }), delay)
-    },
-  },
-})
+    } else {
+      const delay = parseInt(props.closeDelay, 10)
+      data.closeTimeout = setTimeout(cb || (() => {
+        props.isActive = { open: true, close: false }[type]
+      }), delay)
+    }
+  }
+  return {
+    clearDelay,
+    runDelay,
+  }
+}

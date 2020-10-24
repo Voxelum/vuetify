@@ -1,8 +1,16 @@
-import Vue, { VNode } from 'vue'
+import { colorableProps } from '@mixins/colorable'
+import { ExtractPropTypes, h, SetupContext, VNode } from 'vue'
 import VProgressLinear from '../../components/VProgressLinear'
-
-interface colorable extends Vue {
-  color?: string
+export const loadableProps = {
+  ...colorableProps,
+  loading: {
+    type: [Boolean, String],
+    default: false,
+  },
+  loaderHeight: {
+    type: [Number, String],
+    default: 2,
+  },
 }
 
 /**
@@ -15,34 +23,19 @@ interface colorable extends Vue {
  * or designate a custom progress linear bar
  */
 /* @vue/component */
-export default Vue.extend<colorable>().extend({
-  name: 'loadable',
-
-  props: {
-    loading: {
-      type: [Boolean, String],
-      default: false,
-    },
-    loaderHeight: {
-      type: [Number, String],
-      default: 2,
-    },
-  },
-
-  methods: {
-    genProgress (): VNode | VNode[] | null {
-      if (this.loading === false) return null
-
-      return this.$slots.progress || this.$createElement(VProgressLinear, {
-        props: {
-          absolute: true,
-          color: (this.loading === true || this.loading === '')
-            ? (this.color || 'primary')
-            : this.loading,
-          height: this.loaderHeight,
-          indeterminate: true,
-        },
-      })
-    },
-  },
-})
+export default function useLoadable(props: ExtractPropTypes<typeof loadableProps>, context: SetupContext) {
+  function genProgress(): VNode | VNode[] | null {
+    if (props.loading === false) return null
+    return context.slots.progress?.() || h(VProgressLinear, {
+      absolute: true,
+      color: (props.loading === true || props.loading === '')
+        ? (props.color || 'primary')
+        : props.loading,
+      height: props.loaderHeight,
+      indeterminate: true,
+    })
+  }
+  return {
+    genProgress,
+  }
+}

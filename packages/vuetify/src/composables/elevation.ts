@@ -8,14 +8,14 @@ export interface ElevationProps {
 }
 
 // Props
-export function elevationProps (
+export function elevationProps(
   defaults: Partial<ElevationProps> = {}
 ) {
   return {
     elevation: {
       type: [Number, String],
       default: defaults.elevation,
-      validator (v: any) {
+      validator(v: any) {
         const value = parseInt(v)
 
         return (
@@ -32,7 +32,7 @@ export function elevationProps (
 }
 
 // Effect
-export function useElevationClasses (props: ElevationProps) {
+export function useElevationClasses(props: ElevationProps) {
   const elevationClasses = computed(() => {
     const { elevation = props.flat ? 0 : undefined } = props
 

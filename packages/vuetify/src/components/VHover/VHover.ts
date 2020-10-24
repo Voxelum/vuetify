@@ -1,73 +1,76 @@
-// Mixins
-import Delayable from '../../mixins/delayable'
-import Toggleable from '../../mixins/toggleable'
-
-// Utilities
-import mixins from '../../util/mixins'
+import { useToggleableFactory } from '@mixins/toggleable'
+import { defineComponent, ExtractPropTypes, VNode, VNodeArrayChildren } from 'vue'
+// Types
+import useDelayable, { delayableProps } from '../../mixins/delayable'
 import { consoleWarn } from '../../util/console'
 
-// Types
-import { VNode, ScopedSlotChildren } from 'vue/types/vnode'
+export const VHoverProps = {
+  ...delayableProps,
+  disabled: {
+    type: Boolean,
+    default: false,
+  },
+  value: {
+    type: Boolean,
+    default: undefined,
+  },
+}
 
-export default mixins(
-  Delayable,
-  Toggleable
-  /* @vue/component */
-).extend({
+export function useVHover(props: ExtractPropTypes<typeof VHoverProps>) {
+  const { runDelay } = useDelayable(props)
+  function onMouseEnter() {
+    runDelay('open')
+  }
+  function onMouseLeave() {
+    runDelay('close')
+  }
+  return {
+    onMouseEnter,
+    onMouseLeave,
+  }
+}
+
+const useToggable = useToggleableFactory()
+
+const VHover = defineComponent({
   name: 'v-hover',
+  props: VHoverProps,
+  setup(props, context) {
+    const { onMouseEnter, onMouseLeave } = useVHover(props)
+    const { isActive } = useToggable(props, context)
+    return () => {
+      if (!context.slots.default && props.value === undefined) {
+        consoleWarn('v-hover is missing a default scopedSlot or bound value', this)
 
-  props: {
-    disabled: {
-      type: Boolean,
-      default: false,
-    },
-    value: {
-      type: Boolean,
-      default: undefined,
-    },
-  },
+        return null as any
+      }
 
-  methods: {
-    onMouseEnter () {
-      this.runDelay('open')
-    },
-    onMouseLeave () {
-      this.runDelay('close')
-    },
-  },
+      let element: VNode | VNodeArrayChildren | undefined
 
-  render (): VNode {
-    if (!this.$scopedSlots.default && this.value === undefined) {
-      consoleWarn('v-hover is missing a default scopedSlot or bound value', this)
+      /* istanbul ignore else */
+      if (context.slots.default) {
+        element = context.slots.default({ hover: isActive })
+      }
 
-      return null as any
+      if (Array.isArray(element) && element.length === 1) {
+        element = element[0]
+      }
+
+      if (!element || Array.isArray(element) || !element.tag) {
+        consoleWarn('v-hover should only contain a single element', this)
+
+        return element as any
+      }
+
+      if (!props.disabled) {
+        element.props = element.props || {}
+        element.props.onMouseEnter = onMouseEnter
+        element.props.onMouseLeave = onMouseLeave
+      }
+
+      return element
     }
-
-    let element: VNode | ScopedSlotChildren
-
-    /* istanbul ignore else */
-    if (this.$scopedSlots.default) {
-      element = this.$scopedSlots.default({ hover: this.isActive })
-    }
-
-    if (Array.isArray(element) && element.length === 1) {
-      element = element[0]
-    }
-
-    if (!element || Array.isArray(element) || !element.tag) {
-      consoleWarn('v-hover should only contain a single element', this)
-
-      return element as any
-    }
-
-    if (!this.disabled) {
-      element.data = element.data || {}
-      this._g(element.data, {
-        mouseenter: this.onMouseEnter,
-        mouseleave: this.onMouseLeave,
-      })
-    }
-
-    return element
-  },
+  }
 })
+
+export default VHover

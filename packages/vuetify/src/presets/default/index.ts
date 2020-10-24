@@ -3,13 +3,14 @@ import '../../styles/main.sass'
 
 // Locale
 import { en } from '../../locale'
+import { VuetifyPreset } from 'types'
 
 // Icons
 // TODO: Enable for v3
 // import mdi from '../../services/icons/presets/mdi'
 
 // Types
-import { VuetifyPreset } from 'vuetify/types/services/presets'
+// import { VuetifyPreset } from 'vuetify/types/services/presets'
 
 export const preset: VuetifyPreset = {
   breakpoint: {

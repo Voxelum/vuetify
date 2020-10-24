@@ -1,245 +1,274 @@
-import './VProgressLinear.sass'
-
+import { useVuetify } from '@framework'
+import { computed, defineComponent, ExtractPropTypes, h, mergeProps, onMounted, reactive, Ref, ref, SetupContext, VNode } from 'vue'
+import useColorable, { backgroundColor, colorableProps, textColor } from '../../mixins/colorable'
+import { positionableProps } from '../../mixins/positionable'
+import { proxyable } from '../../mixins/proxyable'
+import useThemeable, { themeableProps } from '../../mixins/themeable'
+// Utilities
+import { convertToUnit, getSlot } from '../../util/helpers'
 // Components
 import {
   VFadeTransition,
-  VSlideXTransition,
+  VSlideXTransition
 } from '../transitions'
+import './VProgressLinear.sass'
 
-// Mixins
-import Colorable from '../../mixins/colorable'
-import { factory as PositionableFactory } from '../../mixins/positionable'
-import Proxyable from '../../mixins/proxyable'
-import Themeable from '../../mixins/themeable'
+//   Colorable,
+//   PositionableFactory(['absolute', 'fixed', 'top', 'bottom']),
+//   Proxyable,
+//   Themeable
 
-// Utilities
-import { convertToUnit, getSlot } from '../../util/helpers'
-import mixins from '../../util/mixins'
+const { useProxyable, proxyableProps } = proxyable()
 
-// Types
-import { FunctionalComponentOptions } from 'vue/types'
-import { VNode } from 'vue'
-
-const baseMixins = mixins(
-  Colorable,
-  PositionableFactory(['absolute', 'fixed', 'top', 'bottom']),
-  Proxyable,
-  Themeable
-)
+export const VProgressLinearProps = {
+  ...colorableProps,
+  ...positionableProps(['absolute', 'fixed', 'top', 'bottom']),
+  ...proxyableProps,
+  ...themeableProps,
+  active: {
+    type: Boolean,
+    default: true,
+  },
+  backgroundColor: {
+    type: String,
+    default: null,
+  },
+  backgroundOpacity: {
+    type: [Number, String],
+    default: null,
+  },
+  bufferValue: {
+    type: [Number, String],
+    default: 100,
+  },
+  color: {
+    type: String,
+    default: 'primary',
+  },
+  height: {
+    type: [Number, String],
+    default: 4,
+  },
+  indeterminate: Boolean,
+  query: Boolean,
+  reverse: Boolean,
+  rounded: Boolean,
+  stream: Boolean,
+  striped: Boolean,
+  value: {
+    type: [Number, String],
+    default: 0,
+  },
+}
 
 /* @vue/component */
-export default baseMixins.extend({
-  name: 'v-progress-linear',
+export function useVProgressLinear(props: ExtractPropTypes<typeof VProgressLinearProps>, context: SetupContext) {
+  const { themeClasses } = useThemeable(props)
+  const { internalValue } = useProxyable(props, context)
+  const vuetify = useVuetify()
 
-  props: {
-    active: {
-      type: Boolean,
-      default: true,
-    },
-    backgroundColor: {
-      type: String,
-      default: null,
-    },
-    backgroundOpacity: {
-      type: [Number, String],
-      default: null,
-    },
-    bufferValue: {
-      type: [Number, String],
-      default: 100,
-    },
-    color: {
-      type: String,
-      default: 'primary',
-    },
-    height: {
-      type: [Number, String],
-      default: 4,
-    },
-    indeterminate: Boolean,
-    query: Boolean,
-    reverse: Boolean,
-    rounded: Boolean,
-    stream: Boolean,
-    striped: Boolean,
-    value: {
-      type: [Number, String],
-      default: 0,
-    },
-  },
+  const data = reactive({
+    internalLazyValue: props.value || 0,
+  })
 
-  data () {
-    return {
-      internalLazyValue: this.value || 0,
-    }
-  },
-
-  computed: {
-    __cachedBackground (): VNode {
-      return this.$createElement('div', this.setBackgroundColor(this.backgroundColor || this.color, {
-        staticClass: 'v-progress-linear__background',
-        style: this.backgroundStyle,
-      }))
-    },
-    __cachedBar (): VNode {
-      return this.$createElement(this.computedTransition, [this.__cachedBarType])
-    },
-    __cachedBarType (): VNode {
-      return this.indeterminate ? this.__cachedIndeterminate : this.__cachedDeterminate
-    },
-    __cachedBuffer (): VNode {
-      return this.$createElement('div', {
-        staticClass: 'v-progress-linear__buffer',
-        style: this.styles,
-      })
-    },
-    __cachedDeterminate (): VNode {
-      return this.$createElement('div', this.setBackgroundColor(this.color, {
-        staticClass: `v-progress-linear__determinate`,
-        style: {
-          width: convertToUnit(this.normalizedValue, '%'),
-        },
-      }))
-    },
-    __cachedIndeterminate (): VNode {
-      return this.$createElement('div', {
-        staticClass: 'v-progress-linear__indeterminate',
-        class: {
-          'v-progress-linear__indeterminate--active': this.active,
-        },
-      }, [
-        this.genProgressBar('long'),
-        this.genProgressBar('short'),
-      ])
-    },
-    __cachedStream (): VNode | null {
-      if (!this.stream) return null
-
-      return this.$createElement('div', this.setTextColor(this.color, {
-        staticClass: 'v-progress-linear__stream',
-        style: {
-          width: convertToUnit(100 - this.normalizedBuffer, '%'),
-        },
-      }))
-    },
-    backgroundStyle (): object {
-      const backgroundOpacity = this.backgroundOpacity == null
-        ? (this.backgroundColor ? 1 : 0.3)
-        : parseFloat(this.backgroundOpacity)
-
-      return {
-        opacity: backgroundOpacity,
-        [this.isReversed ? 'right' : 'left']: convertToUnit(this.normalizedValue, '%'),
-        width: convertToUnit(this.normalizedBuffer - this.normalizedValue, '%'),
-      }
-    },
-    classes (): object {
-      return {
-        'v-progress-linear--absolute': this.absolute,
-        'v-progress-linear--fixed': this.fixed,
-        'v-progress-linear--query': this.query,
-        'v-progress-linear--reactive': this.reactive,
-        'v-progress-linear--reverse': this.isReversed,
-        'v-progress-linear--rounded': this.rounded,
-        'v-progress-linear--striped': this.striped,
-        ...this.themeClasses,
-      }
-    },
-    computedTransition (): FunctionalComponentOptions {
-      return this.indeterminate ? VFadeTransition : VSlideXTransition
-    },
-    isReversed (): boolean {
-      return this.$vuetify.rtl !== this.reverse
-    },
-    normalizedBuffer (): number {
-      return this.normalize(this.bufferValue)
-    },
-    normalizedValue (): number {
-      return this.normalize(this.internalLazyValue)
-    },
-    reactive (): boolean {
-      return Boolean(this.$listeners.change)
-    },
-    styles (): object {
-      const styles: Record<string, any> = {}
-
-      if (!this.active) {
-        styles.height = 0
-      }
-
-      if (!this.indeterminate && parseFloat(this.normalizedBuffer) !== 100) {
-        styles.width = convertToUnit(this.normalizedBuffer, '%')
-      }
-
-      return styles
-    },
-  },
-
-  methods: {
-    genContent () {
-      const slot = getSlot(this, 'default', { value: this.internalLazyValue })
-
-      if (!slot) return null
-
-      return this.$createElement('div', {
-        staticClass: 'v-progress-linear__content',
-      }, slot)
-    },
-    genListeners () {
-      const listeners = this.$listeners
-
-      if (this.reactive) {
-        listeners.click = this.onClick
-      }
-
-      return listeners
-    },
-    genProgressBar (name: 'long' | 'short') {
-      return this.$createElement('div', this.setBackgroundColor(this.color, {
-        staticClass: 'v-progress-linear__indeterminate',
-        class: {
-          [name]: true,
-        },
-      }))
-    },
-    onClick (e: MouseEvent) {
-      if (!this.reactive) return
-
-      const { width } = this.$el.getBoundingClientRect()
-
-      this.internalValue = e.offsetX / width * 100
-    },
-    normalize (value: string | number) {
-      if (value < 0) return 0
-      if (value > 100) return 100
-      return parseFloat(value)
-    },
-  },
-
-  render (h): VNode {
-    const data = {
-      staticClass: 'v-progress-linear',
-      attrs: {
-        role: 'progressbar',
-        'aria-valuemin': 0,
-        'aria-valuemax': this.normalizedBuffer,
-        'aria-valuenow': this.indeterminate ? undefined : this.normalizedValue,
-      },
-      class: this.classes,
+  const el: Ref<HTMLElement | null> = ref(null)
+  const __cachedBackground: Ref<VNode> = computed(() => {
+    return h('div', mergeProps({
+      class: 'v-progress-linear__background',
+      style: backgroundStyle.value,
+    }, backgroundColor(props.backgroundColor || props.color)))
+  })
+  const __cachedBar: Ref<VNode> = computed(() => {
+    return h(computedTransition.value, [__cachedBarType.value])
+  })
+  const __cachedBarType: Ref<VNode> = computed(() => {
+    return props.indeterminate ? __cachedIndeterminate.value : __cachedDeterminate.value
+  })
+  const __cachedBuffer: Ref<VNode> = computed(() => {
+    return h('div', {
+      class: 'v-progress-linear__buffer',
+      style: styles.value,
+    })
+  })
+  const __cachedDeterminate: Ref<VNode> = computed(() => {
+    return h('div', mergeProps({
+      class: `v-progress-linear__determinate`,
       style: {
-        bottom: this.bottom ? 0 : undefined,
-        height: this.active ? convertToUnit(this.height) : 0,
-        top: this.top ? 0 : undefined,
+        width: convertToUnit(normalizedValue.value, '%'),
       },
-      on: this.genListeners(),
+    }, backgroundColor(props.color)))
+  })
+  const __cachedIndeterminate: Ref<VNode> = computed(() => {
+    return h('div', {
+      class: {
+        'v-progress-linear__indeterminate': true,
+        'v-progress-linear__indeterminate--active': props.active,
+      },
+    }, [
+      genProgressBar('long'),
+      genProgressBar('short'),
+    ])
+  })
+  const __cachedStream: Ref<VNode | null> = computed(() => {
+    if (!props.stream) return null
+
+    return h('div', mergeProps({
+      class: 'v-progress-linear__stream',
+      style: {
+        width: convertToUnit(100 - normalizedBuffer.value, '%'),
+      },
+    }, textColor(props.color)))
+  })
+  const backgroundStyle: Ref<object> = computed(() => {
+    const backgroundOpacity = props.backgroundOpacity == null
+      ? (props.backgroundColor ? 1 : 0.3)
+      : parseFloat(props.backgroundOpacity)
+
+    return {
+      opacity: backgroundOpacity,
+      [isReversed.value ? 'right' : 'left']: convertToUnit(normalizedValue.value, '%'),
+      width: convertToUnit(normalizedBuffer.value - normalizedValue.value, '%'),
+    }
+  })
+  const classes: Ref<object> = computed(() => {
+    return {
+      'v-progress-linear': true,
+      'v-progress-linear--absolute': props.absolute,
+      'v-progress-linear--fixed': props.fixed,
+      'v-progress-linear--query': props.query,
+      'v-progress-linear--reactive': _reactive.value,
+      'v-progress-linear--reverse': isReversed.value,
+      'v-progress-linear--rounded': props.rounded,
+      'v-progress-linear--striped': props.striped,
+      ...themeClasses.value,
+    }
+  })
+  const computedTransition = computed(() => {
+    return props.indeterminate ? VFadeTransition : VSlideXTransition
+  })
+  const isReversed: Ref<boolean> = computed(() => {
+    return vuetify.rtl !== props.reverse
+  })
+  const normalizedBuffer: Ref<number> = computed(() => {
+    return normalize(props.bufferValue)
+  })
+  const normalizedValue: Ref<number> = computed(() => {
+    return normalize(data.internalLazyValue)
+  })
+  const _reactive: Ref<boolean> = computed(() => {
+    return Boolean(context.attrs.onChange)
+  })
+  const styles: Ref<object> = computed(() => {
+    const styles: Record<string, any> = {}
+
+    if (!props.active) {
+      styles.height = 0
     }
 
-    return h('div', data, [
-      this.__cachedStream,
-      this.__cachedBackground,
-      this.__cachedBuffer,
-      this.__cachedBar,
-      this.genContent(),
+    if (!props.indeterminate && parseFloat(normalizedBuffer.value) !== 100) {
+      styles.width = convertToUnit(normalizedBuffer.value, '%')
+    }
+
+    return styles
+  })
+
+  function genContent() {
+    const slot = getSlot(context, 'default', { value: data.internalLazyValue })
+
+    if (!slot) return null
+
+    return h('div', {
+      class: 'v-progress-linear__content',
+    }, slot)
+  }
+  function genListeners() {
+    const listeners = { ...context.attrs }
+
+    if (_reactive.value) {
+      listeners.onClick = onClick
+    }
+
+    return listeners
+  }
+  function genProgressBar(name: 'long' | 'short') {
+    return h('div', mergeProps({
+      class: {
+        'v-progress-linear__indeterminate': true,
+        [name]: true,
+      },
+    }, backgroundColor(props.color)))
+  }
+  function onClick(e: MouseEvent) {
+    if (!_reactive.value) return
+
+    const { width } = el.value!.getBoundingClientRect()
+
+    internalValue.value = e.offsetX / width * 100
+  }
+  function normalize(value: string | number) {
+    if (value < 0) return 0
+    if (value > 100) return 100
+    return parseFloat(value)
+  }
+
+  return {
+    __cachedBackground,
+    __cachedBar,
+    __cachedBarType,
+    __cachedBuffer,
+    __cachedDeterminate,
+    __cachedIndeterminate,
+    __cachedStream,
+    backgroundStyle,
+    classes,
+    computedTransition,
+    isReversed,
+    normalizedBuffer,
+    normalizedValue,
+    reactive: _reactive,
+    styles,
+    genContent,
+    genListeners,
+    genProgressBar,
+    onClick,
+    normalize,
+    el,
+  }
+}
+const VProgressLinear = defineComponent({
+  name: 'v-progress-linear',
+  props: VProgressLinearProps,
+  setup(props, context) {
+    const {
+      normalizedBuffer, normalizedValue, classes, genListeners,
+      __cachedStream, __cachedBackground,
+      __cachedBuffer, __cachedBar,
+      genContent,
+      el,
+    } = useVProgressLinear(props, context)
+
+    return () => h('div', {
+      role: 'progressbar',
+      'aria-valuemin': 0,
+      'aria-valuemax': normalizedBuffer.value,
+      'aria-valuenow': props.indeterminate ? undefined : normalizedValue.value,
+      class: classes.value,
+      style: {
+        bottom: props.bottom ? 0 : undefined,
+        height: props.active ? convertToUnit(props.height) : 0,
+        top: props.top ? 0 : undefined,
+      },
+      ref: el,
+      ...genListeners(),
+    }, [
+      __cachedStream.value,
+      __cachedBackground.value,
+      __cachedBuffer.value,
+      __cachedBar.value,
+      genContent(),
     ])
   },
 })
+
+export default VProgressLinear
+

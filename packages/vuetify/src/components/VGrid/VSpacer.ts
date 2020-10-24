@@ -1,4 +1,13 @@
+import { defineComponent, h, mergeProps } from 'vue'
 import './_grid.sass'
-import { createSimpleFunctional } from '../../util/helpers'
 
-export default createSimpleFunctional('spacer', 'div', 'v-spacer')
+const VSpacer = defineComponent({
+    name: 'v-spacer',
+    setup(props, context) {
+        return () => h('div', mergeProps({
+            staticClass: `spacer ${context.attrs.staticClass || ''}`
+        }, context.attrs), context.slots)
+    },
+})
+
+export default VSpacer

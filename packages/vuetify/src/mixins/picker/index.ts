@@ -1,77 +1,77 @@
+import { elevatableProps } from '@mixins/elevatable/index.ts.mod'
+import { ExtractPropTypes, h, SetupContext, VNode } from 'vue'
 // Components
 import VPicker from '../../components/VPicker'
-
 // Mixins
-import Colorable from '../colorable'
-import Elevatable from '../../mixins/elevatable'
-import Themeable from '../themeable'
+import { colorableProps } from '../colorable'
+import { themeableProps } from '../themeable'
 
-// Utils
-import mixins from '../../util/mixins'
+export const pickerProps = {
+  flat: Boolean,
+  fullWidth: Boolean,
+  headerColor: String,
+  landscape: Boolean,
+  noTitle: Boolean,
+  width: {
+    type: [Number, String],
+    default: 290,
+  },
+  ...colorableProps,
+  ...elevatableProps,
+  ...themeableProps,
+}
 
-// Types
-import { VNode } from 'vue'
-
-export default mixins(
-  Colorable,
-  Elevatable,
-  Themeable
+// export default mixins(
+//   Colorable,
+//   Elevatable,
+//   Themeable
 /* @vue/component */
-).extend({
-  name: 'picker',
+export default function usePicker(props: ExtractPropTypes<typeof pickerProps>, context: SetupContext) {
+  function genPickerTitle(): VNode | null {
+    return null
+  }
+  function genPickerBody(): VNode | null {
+    return null
+  }
+  function genPickerActionsSlot() {
+    // TODO: check this
+    return context.scopedSlots.default ? context.scopedSlots.default({
+      save: (this as any).save,
+      cancel: (this as any).cancel,
+    }) : context.slots.default
+  }
+  function genPicker(staticClass: string) {
+    const children: VNode[] = []
 
-  props: {
-    flat: Boolean,
-    fullWidth: Boolean,
-    headerColor: String,
-    landscape: Boolean,
-    noTitle: Boolean,
-    width: {
-      type: [Number, String],
-      default: 290,
-    },
-  },
+    if (!props.noTitle) {
+      const title = genPickerTitle()
+      title && children.push(title)
+    }
 
-  methods: {
-    genPickerTitle (): VNode | null {
-      return null
-    },
-    genPickerBody (): VNode | null {
-      return null
-    },
-    genPickerActionsSlot () {
-      return this.$scopedSlots.default ? this.$scopedSlots.default({
-        save: (this as any).save,
-        cancel: (this as any).cancel,
-      }) : this.$slots.default
-    },
-    genPicker (staticClass: string) {
-      const children: VNode[] = []
+    const body = genPickerBody()
+    body && children.push(body)
 
-      if (!this.noTitle) {
-        const title = this.genPickerTitle()
-        title && children.push(title)
-      }
+    children.push(h('template', { slot: 'actions' }, [genPickerActionsSlot()]))
 
-      const body = this.genPickerBody()
-      body && children.push(body)
-
-      children.push(this.$createElement('template', { slot: 'actions' }, [this.genPickerActionsSlot()]))
-
-      return this.$createElement(VPicker, {
-        staticClass,
-        props: {
-          color: this.headerColor || this.color,
-          dark: this.dark,
-          elevation: this.elevation,
-          flat: this.flat,
-          fullWidth: this.fullWidth,
-          landscape: this.landscape,
-          light: this.light,
-          width: this.width,
-          noTitle: this.noTitle,
-        },
-      }, children)
-    },
-  },
-})
+    return h(VPicker, {
+      staticClass,
+      props: {
+        color: props.headerColor || props.color,
+        dark: props.dark,
+        elevation: props.elevation,
+        flat: props.flat,
+        fullWidth: props.fullWidth,
+        landscape: props.landscape,
+        light: props.light,
+        width: props.width,
+        noTitle: props.noTitle,
+      },
+    }, children)
+  }
+  return {
+    genPickerTitle,
+    genPickerBody,
+    genPickerActionsSlot,
+    genPicker,
+  }
+}

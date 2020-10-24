@@ -1,102 +1,114 @@
-import './VPicker.sass'
-import '../VCard/VCard.sass'
-
-// Mixins
-import Colorable from '../../mixins/colorable'
-import Elevatable from '../../mixins/elevatable'
-import Themeable from '../../mixins/themeable'
-
+import { computed, defineComponent, ExtractPropTypes, h, Ref, SetupContext } from 'vue'
+import useColorable, { colorableProps } from '../../mixins/colorable'
+import useElevatable, { elevatableProps } from '../../mixins/elevatable'
+import useThemeable, { themeableProps } from '../../mixins/themeable'
 // Helpers
 import { convertToUnit } from '../../util/helpers'
+import '../VCard/VCard.sass'
+import './VPicker.sass'
 
-// Types
-import { VNode } from 'vue/types'
-import mixins from '../../util/mixins'
+// Colorable,
+// Elevatable,
+// Themeable
+
+export const VPickerProps = {
+  ...colorableProps,
+  ...elevatableProps,
+  ...themeableProps,
+  flat: Boolean,
+  fullWidth: Boolean,
+  landscape: Boolean,
+  noTitle: Boolean,
+  transition: {
+    type: String,
+    default: 'fade-transition',
+  },
+  width: {
+    type: [Number, String],
+    default: 290,
+  },
+}
 
 /* @vue/component */
-export default mixins(
-  Colorable,
-  Elevatable,
-  Themeable
-).extend({
-  name: 'v-picker',
+export function useVPicker(props: ExtractPropTypes<typeof VPickerProps>, context: SetupContext) {
+  const { themeClasses, isDark } = useThemeable(props)
+  const { setBackgroundColor } = useColorable(context)
+  const { elevationClasses } = useElevatable(props)
 
-  props: {
-    flat: Boolean,
-    fullWidth: Boolean,
-    landscape: Boolean,
-    noTitle: Boolean,
-    transition: {
-      type: String,
-      default: 'fade-transition',
-    },
-    width: {
-      type: [Number, String],
-      default: 290,
-    },
-  },
+  const computedTitleColor: Ref<string | false> = computed(() => {
+    const defaultTitleColor = isDark.value ? false : (props.color || 'primary')
+    return props.color || defaultTitleColor
+  })
 
-  computed: {
-    computedTitleColor (): string | false {
-      const defaultTitleColor = this.isDark ? false : (this.color || 'primary')
-      return this.color || defaultTitleColor
-    },
-  },
-
-  methods: {
-    genTitle () {
-      return this.$createElement('div', this.setBackgroundColor(this.computedTitleColor, {
-        staticClass: 'v-picker__title',
-        class: {
-          'v-picker__title--landscape': this.landscape,
-        },
-      }), this.$slots.title)
-    },
-    genBodyTransition () {
-      return this.$createElement('transition', {
-        props: {
-          name: this.transition,
-        },
-      }, this.$slots.default)
-    },
-    genBody () {
-      return this.$createElement('div', {
-        staticClass: 'v-picker__body',
-        class: {
-          'v-picker__body--no-title': this.noTitle,
-          ...this.themeClasses,
-        },
-        style: this.fullWidth ? undefined : {
-          width: convertToUnit(this.width),
-        },
-      }, [
-        this.genBodyTransition(),
-      ])
-    },
-    genActions () {
-      return this.$createElement('div', {
-        staticClass: 'v-picker__actions v-card__actions',
-        class: {
-          'v-picker__actions--no-title': this.noTitle,
-        },
-      }, this.$slots.actions)
-    },
-  },
-
-  render (h): VNode {
-    return h('div', {
-      staticClass: 'v-picker v-card',
+  function genTitle() {
+    return h('div', setBackgroundColor(computedTitleColor.value, {
       class: {
-        'v-picker--flat': this.flat,
-        'v-picker--landscape': this.landscape,
-        'v-picker--full-width': this.fullWidth,
-        ...this.themeClasses,
-        ...this.elevationClasses,
+        'v-picker__title': true,
+        'v-picker__title--landscape': props.landscape,
+      },
+    }), context.slots.title)
+  }
+  function genBodyTransition() {
+    return h('transition', {
+      name: props.transition,
+    }, context.slots.default)
+  }
+  function genBody() {
+    return h('div', {
+      class: {
+        'v-picker__body': true,
+        'v-picker__body--no-title': props.noTitle,
+        ...themeClasses.value,
+      },
+      style: props.fullWidth ? undefined : {
+        width: convertToUnit(props.width),
       },
     }, [
-      this.$slots.title ? this.genTitle() : null,
-      this.genBody(),
-      this.$slots.actions ? this.genActions() : null,
+      genBodyTransition(),
+    ])
+  }
+  function genActions() {
+    return h('div', {
+      class: {
+        'v-picker__actions v-card__actions': true,
+        'v-picker__actions--no-title': props.noTitle,
+      },
+    }, context.slots.actions)
+  }
+
+  return {
+    computedTitleColor,
+    genTitle,
+    genBodyTransition,
+    genBody,
+    genActions,
+    themeClasses,
+    elevationClasses,
+  }
+}
+
+const VPicker = defineComponent({
+  name: 'v-picker',
+  props: VPickerProps,
+  setup(props, context) {
+    const { genTitle, genActions, genBody, themeClasses, elevationClasses } = useVPicker(props, context)
+    return () => h('div', {
+      class: {
+        'v-picker': true,
+        'v-card': true,
+        'v-picker--flat': props.flat,
+        'v-picker--landscape': props.landscape,
+        'v-picker--full-width': props.fullWidth,
+        ...themeClasses.value,
+        ...elevationClasses.value,
+      },
+    }, [
+      context.slots.title ? genTitle() : null,
+      genBody(),
+      context.slots.actions ? genActions() : null,
     ])
   },
 })
+
+export default VPicker
+

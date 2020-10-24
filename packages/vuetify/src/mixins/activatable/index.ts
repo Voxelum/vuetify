@@ -1,212 +1,220 @@
-// Mixins
-import Delayable from '../delayable'
-import Toggleable from '../toggleable'
+import { ExtractPropTypes, onBeforeUnmount, onMounted, PropType, reactive, SetupContext, VNode, watch } from 'vue'
+import { getSlot } from '../../util/helpers'
+import useDelayable, { delayableProps } from '../delayable'
+import { toggableProps, useToggleableFactory } from '../toggleable'
 
-// Utilities
-import mixins from '../../util/mixins'
-import { getSlot, getSlotType } from '../../util/helpers'
-import { consoleError } from '../../util/console'
 
-// Types
-import { VNode, PropType } from 'vue'
+export const activatableProps = {
+  ...delayableProps,
+  ...toggableProps,
+  activator: {
+    default: null as unknown as PropType<string | HTMLElement | VNode | Element | null>,
+    validator: (val: string | object) => {
+      return ['string', 'object'].includes(typeof val)
+    },
+  },
+  disabled: Boolean,
+  internalActivator: Boolean,
+  openOnHover: Boolean,
+  openOnFocus: Boolean,
+}
 
 type Listeners = Dictionary<(e: MouseEvent & KeyboardEvent & FocusEvent) => void>
 
-const baseMixins = mixins(
-  Delayable,
-  Toggleable
-)
+const useToggleable = useToggleableFactory()
 
 /* @vue/component */
-export default baseMixins.extend({
-  name: 'activatable',
+export default function useActivatable(props: ExtractPropTypes<typeof activatableProps>, context: SetupContext) {
+  const { runDelay, clearDelay } = useDelayable(props)
+  const { isActive } = useToggleable(props, context)
 
-  props: {
-    activator: {
-      default: null as unknown as PropType<string | HTMLElement | VNode | Element | null>,
-      validator: (val: string | object) => {
-        return ['string', 'object'].includes(typeof val)
-      },
-    },
-    disabled: Boolean,
-    internalActivator: Boolean,
-    openOnHover: Boolean,
-    openOnFocus: Boolean,
-  },
-
-  data: () => ({
+  const data = reactive({
     // Do not use this directly, call getActivator() instead
     activatorElement: null as HTMLElement | null,
     activatorNode: [] as VNode[],
     events: ['click', 'mouseenter', 'mouseleave', 'focus'],
     listeners: {} as Listeners,
-  }),
+  })
 
-  watch: {
-    activator: 'resetActivator',
-    openOnFocus: 'resetActivator',
-    openOnHover: 'resetActivator',
-  },
+  watch([() => props.activator, () => props.openOnFocus, () => props.openOnHover], resetActivator)
 
-  mounted () {
-    const slotType = getSlotType(this, 'activator', true)
+  onMounted(() => {
+    // TODO: check this, currently we don't have scoped slot anymore!
 
-    if (slotType && ['v-slot', 'normal'].includes(slotType)) {
-      consoleError(`The activator slot must be bound, try '<template v-slot:activator="{ on }"><v-btn v-on="on">'`, this)
+    // const slotType = getSlotType(this, 'activator', true)
+
+    // if (slotType && ['v-slot', 'normal'].includes(slotType)) {
+    //   consoleError(`The activator slot must be bound, try '<template v-slot:activator="{ on }"><v-btn v-on="on">'`, this)
+    // }
+
+    addActivatorEvents()
+  })
+
+  onBeforeUnmount(() => {
+    removeActivatorEvents()
+  })
+
+  function addActivatorEvents() {
+    if (
+      !props.activator ||
+      props.disabled ||
+      !getActivator()
+    ) return
+
+    data.listeners = genActivatorListeners()
+    const keys = Object.keys(data.listeners)
+
+    for (const key of keys) {
+      getActivator()!.addEventListener(key, data.listeners[key] as any)
+    }
+  }
+  function genActivator() {
+    const node = getSlot(context, 'activator', Object.assign(getValueProxy(), {
+      ...genActivatorListeners(),
+      ...genActivatorAttributes(),
+    })) || []
+
+    data.activatorNode = node
+
+    return node
+  }
+  function genActivatorAttributes() {
+    return {
+      role: 'button',
+      'aria-haspopup': true,
+      'aria-expanded': String(props.isActive),
+    }
+  }
+  function genActivatorListeners() {
+    if (props.disabled) return {}
+
+    const listeners: Listeners = {}
+
+    if (props.openOnHover) {
+      listeners.onMouseenter = (e: MouseEvent) => {
+        getActivator(e)
+        runDelay('open')
+      }
+      listeners.onMouseleave = (e: MouseEvent) => {
+        getActivator(e)
+        runDelay('close')
+      }
+    } else {
+      listeners.onClick = (e: MouseEvent) => {
+        const activator = getActivator(e)
+        if (activator) activator.focus()
+
+        e.stopPropagation()
+
+        isActive.value = !isActive.value
+      }
     }
 
-    this.addActivatorEvents()
-  },
+    if (props.openOnFocus) {
+      listeners.onFocus = (e: FocusEvent) => {
+        getActivator(e)
 
-  beforeDestroy () {
-    this.removeActivatorEvents()
-  },
+        e.stopPropagation()
 
-  methods: {
-    addActivatorEvents () {
-      if (
-        !this.activator ||
-        this.disabled ||
-        !this.getActivator()
-      ) return
-
-      this.listeners = this.genActivatorListeners()
-      const keys = Object.keys(this.listeners)
-
-      for (const key of keys) {
-        this.getActivator()!.addEventListener(key, this.listeners[key] as any)
+        isActive.value = !isActive.value
       }
-    },
-    genActivator () {
-      const node = getSlot(this, 'activator', Object.assign(this.getValueProxy(), {
-        on: this.genActivatorListeners(),
-        attrs: this.genActivatorAttributes(),
-      })) || []
+    }
 
-      this.activatorNode = node
+    return listeners
+  }
+  function getActivator(e?: Event): HTMLElement | null {
+    // If we've already fetched the activator, re-use
+    if (data.activatorElement) return data.activatorElement
 
-      return node
-    },
-    genActivatorAttributes () {
-      return {
-        role: 'button',
-        'aria-haspopup': true,
-        'aria-expanded': String(this.isActive),
-      }
-    },
-    genActivatorListeners () {
-      if (this.disabled) return {}
+    let activator = null
 
-      const listeners: Listeners = {}
+    if (props.activator) {
+      const target = props.internalActivator ? context.el : document
 
-      if (this.openOnHover) {
-        listeners.mouseenter = (e: MouseEvent) => {
-          this.getActivator(e)
-          this.runDelay('open')
-        }
-        listeners.mouseleave = (e: MouseEvent) => {
-          this.getActivator(e)
-          this.runDelay('close')
-        }
+      if (typeof props.activator === 'string') {
+        // Selector
+        activator = target.querySelector(props.activator)
+      } else if ((props.activator as any).el) {
+        // Component (ref)
+        activator = (props.activator as any).el
       } else {
-        listeners.click = (e: MouseEvent) => {
-          const activator = this.getActivator(e)
-          if (activator) activator.focus()
-
-          e.stopPropagation()
-
-          this.isActive = !this.isActive
-        }
+        // HTMLElement | Element
+        activator = props.activator
       }
+    } else if (data.activatorNode.length === 1 || (data.activatorNode.length && !e)) {
+      // Use the contents of the activator slot
+      // There's either only one element in it or we
+      // don't have a click event to use as a last resort
+      const vm = data.activatorNode[0].component
 
-      if (this.openOnFocus) {
-        listeners.focus = (e: FocusEvent) => {
-          this.getActivator(e)
-
-          e.stopPropagation()
-
-          this.isActive = !this.isActive
-        }
-      }
-
-      return listeners
-    },
-    getActivator (e?: Event): HTMLElement | null {
-      // If we've already fetched the activator, re-use
-      if (this.activatorElement) return this.activatorElement
-
-      let activator = null
-
-      if (this.activator) {
-        const target = this.internalActivator ? this.$el : document
-
-        if (typeof this.activator === 'string') {
-          // Selector
-          activator = target.querySelector(this.activator)
-        } else if ((this.activator as any).$el) {
-          // Component (ref)
-          activator = (this.activator as any).$el
-        } else {
-          // HTMLElement | Element
-          activator = this.activator
-        }
-      } else if (this.activatorNode.length === 1 || (this.activatorNode.length && !e)) {
-        // Use the contents of the activator slot
-        // There's either only one element in it or we
-        // don't have a click event to use as a last resort
-        const vm = this.activatorNode[0].componentInstance
-        if (
-          vm &&
-          vm.$options.mixins && //                         Activatable is indirectly used via Menuable
-          vm.$options.mixins.some((m: any) => m.options && ['activatable', 'menuable'].includes(m.options.name))
-        ) {
-          // Activator is actually another activatible component, use its activator (#8846)
-          activator = (vm as any).getActivator()
-        } else {
-          activator = this.activatorNode[0].elm as HTMLElement
-        }
-      } else if (e) {
-        // Activated by a click or focus event
-        activator = (e.currentTarget || e.target) as HTMLElement
-      }
-
-      this.activatorElement = activator
-
-      return this.activatorElement
-    },
-    getContentSlot () {
-      return getSlot(this, 'default', this.getValueProxy(), true)
-    },
-    getValueProxy (): object {
-      const self = this
-      return {
-        get value () {
-          return self.isActive
-        },
-        set value (isActive: boolean) {
-          self.isActive = isActive
-        },
-      }
-    },
-    removeActivatorEvents () {
+      //TODO: we don't use mixin for vue 3
       if (
-        !this.activator ||
-        !this.activatorElement
-      ) return
-
-      const keys = Object.keys(this.listeners)
-
-      for (const key of keys) {
-        (this.activatorElement as any).removeEventListener(key, this.listeners[key])
+        vm &&
+        vm.$options.mixins && // Activatable is indirectly used via Menuable
+        vm.$options.mixins.some((m: any) => m.options && ['activatable', 'menuable'].includes(m.options.name))
+      ) {
+        // Activator is actually another activatible component, use its activator (#8846)
+        activator = (vm as any).getActivator()
+      } else {
+        activator = data.activatorNode[0].el as HTMLElement
       }
+    } else if (e) {
+      // Activated by a click or focus event
+      activator = (e.currentTarget || e.target) as HTMLElement
+    }
 
-      this.listeners = {}
-    },
-    resetActivator () {
-      this.removeActivatorEvents()
-      this.activatorElement = null
-      this.getActivator()
-      this.addActivatorEvents()
-    },
-  },
-})
+    data.activatorElement = activator
+
+    return data.activatorElement
+  }
+  function getContentSlot() {
+    return getSlot(context, 'default', getValueProxy(), true)
+  }
+  function getValueProxy(): object {
+    const ref = isActive
+    return {
+      get value() {
+        return ref.value
+      },
+      set value(isActive: boolean) {
+        ref.value = isActive
+      },
+    }
+  }
+  function removeActivatorEvents() {
+    if (
+      !props.activator ||
+      !data.activatorElement
+    ) return
+
+    // TODO: now the listeners is flatted
+
+    const keys = Object.keys(data.listeners)
+
+    for (const key of keys) {
+      (data.activatorElement as any).removeEventListener(key, data.listeners[key])
+    }
+
+    data.listeners = {}
+  }
+  function resetActivator() {
+    removeActivatorEvents()
+    data.activatorElement = null
+    getActivator()
+    addActivatorEvents()
+  }
+  return {
+    addActivatorEvents,
+    genActivator,
+    genActivatorAttributes,
+    genActivatorListeners,
+    getActivator,
+    getContentSlot,
+    getValueProxy,
+    removeActivatorEvents,
+    resetActivator,
+    runDelay,
+    clearDelay,
+    isActive,
+  }
+}

@@ -1,19 +1,24 @@
-// Types
-import Vue, { VNode } from 'vue'
+import { defineComponent, h, mergeProps } from 'vue'
 
 /* @vue/component */
-export default Vue.extend({
+const VListItemAction = defineComponent({
   name: 'v-list-item-action',
-
-  functional: true,
-
-  render (h, { data, children = [] }): VNode {
-    data.staticClass = data.staticClass ? `v-list-item__action ${data.staticClass}` : 'v-list-item__action'
-    const filteredChild = children.filter(VNode => {
-      return VNode.isComment === false && VNode.text !== ' '
-    })
-    if (filteredChild.length > 1) data.staticClass += ' v-list-item__action--stack'
-
-    return h('div', data, children)
+  setup(props, context) {
+    return () => {
+      const children = context.slots.default?.() ?? []
+      const filteredChild = children/* .filter(node => {
+        return node.isComment === false && node.text !== ' '
+      }) */
+      const classes = {
+        'v-list-item__action': true,
+        'v-list-item__action--stack': filteredChild.length > 0
+      }
+      return h('div', mergeProps({
+        class: classes
+      }, context.attrs), children)
+    }
   },
 })
+
+export default VListItemAction
+

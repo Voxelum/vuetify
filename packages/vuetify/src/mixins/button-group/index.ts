@@ -1,24 +1,16 @@
+import { ExtractPropTypes, provide, SetupContext } from 'vue'
 // Extensions
-import { BaseItemGroup } from '../../components/VItemGroup/VItemGroup'
+import { useVItemGroup, VItemGroupProps } from '../../components/VItemGroup/VItemGroup'
 
 /* @vue/component */
-export default BaseItemGroup.extend({
-  name: 'button-group',
-
-  provide (): object {
-    return {
-      btnToggle: this,
-    }
-  },
-
-  computed: {
-    classes (): object {
-      return BaseItemGroup.options.computed.classes.call(this)
-    },
-  },
-
-  methods: {
-    // Isn't being passed down through types
-    genData: BaseItemGroup.options.methods.genData,
-  },
-})
+export function useButtonGroup(props: ExtractPropTypes<typeof VItemGroupProps>, context: SetupContext) {
+  const { genData, classes, ...itemGroup } = useVItemGroup(props, context)
+  provide('btnToggle', {
+    genData, classes
+  })
+  return {
+    genData,
+    classes,
+    ...itemGroup,
+  }
+}

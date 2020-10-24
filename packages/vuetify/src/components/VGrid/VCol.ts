@@ -1,8 +1,7 @@
+import { defineComponent, h, mergeProps, Prop } from 'vue'
+import { upperFirst } from '../../util/helpers'
 import './VGrid.sass'
 
-import Vue, { VNode, PropOptions } from 'vue'
-import mergeData from '../../util/mergeData'
-import { upperFirst } from '../../util/helpers'
 
 // no xs
 const breakpoints = ['sm', 'md', 'lg', 'xl']
@@ -14,7 +13,7 @@ const breakpointProps = (() => {
       default: false,
     }
     return props
-  }, {} as Dictionary<PropOptions>)
+  }, {} as Dictionary<Prop<string | boolean | number>>)
 })()
 
 const offsetProps = (() => {
@@ -24,7 +23,7 @@ const offsetProps = (() => {
       default: null,
     }
     return props
-  }, {} as Dictionary<PropOptions>)
+  }, {} as Dictionary<Prop<string | number>>)
 })()
 
 const orderProps = (() => {
@@ -34,7 +33,7 @@ const orderProps = (() => {
       default: null,
     }
     return props
-  }, {} as Dictionary<PropOptions>)
+  }, {} as Dictionary<Prop<string | number>>)
 })()
 
 const propMap = {
@@ -43,7 +42,7 @@ const propMap = {
   order: Object.keys(orderProps),
 }
 
-function breakpointClass (type: keyof typeof propMap, prop: string, val: boolean | string | number) {
+function breakpointClass(type: keyof typeof propMap, prop: string, val: boolean | string | number) {
   let className = type
   if (val == null || val === false) {
     return undefined
@@ -66,69 +65,75 @@ function breakpointClass (type: keyof typeof propMap, prop: string, val: boolean
 
 const cache = new Map<string, any[]>()
 
-export default Vue.extend({
-  name: 'v-col',
-  functional: true,
-  props: {
-    cols: {
-      type: [Boolean, String, Number],
-      default: false,
-    },
-    ...breakpointProps,
-    offset: {
-      type: [String, Number],
-      default: null,
-    },
-    ...offsetProps,
-    order: {
-      type: [String, Number],
-      default: null,
-    },
-    ...orderProps,
-    alignSelf: {
-      type: String,
-      default: null,
-      validator: (str: any) => ['auto', 'start', 'end', 'center', 'baseline', 'stretch'].includes(str),
-    },
-    tag: {
-      type: String,
-      default: 'div',
-    },
+export const VColProps = {
+  cols: {
+    type: [Boolean, String, Number],
+    default: false,
   },
-  render (h, { props, data, children, parent }): VNode {
-    // Super-fast memoization based on props, 5x faster than JSON.stringify
-    let cacheKey = ''
-    for (const prop in props) {
-      cacheKey += String((props as any)[prop])
-    }
-    let classList = cache.get(cacheKey)
+  ...breakpointProps,
+  offset: {
+    type: [String, Number],
+    default: null,
+  },
+  ...offsetProps,
+  order: {
+    type: [String, Number],
+    default: null,
+  },
+  ...orderProps,
+  alignSelf: {
+    type: String,
+    default: null,
+    validator: (str: any) => ['auto', 'start', 'end', 'center', 'baseline', 'stretch'].includes(str),
+  },
+  tag: {
+    type: String,
+    default: 'div',
+  },
+}
 
-    if (!classList) {
-      classList = []
-      // Loop through `col`, `offset`, `order` breakpoint props
-      let type: keyof typeof propMap
-      for (type in propMap) {
-        propMap[type].forEach(prop => {
-          const value: string | number | boolean = (props as any)[prop]
-          const className = breakpointClass(type, prop, value)
-          if (className) classList!.push(className)
+const VCol = defineComponent({
+  name: 'v-col',
+  props: VColProps,
+  setup(props, context) {
+    return () => {
+      // Super-fast memoization based on props, 5x faster than JSON.stringify
+      let cacheKey = ''
+      for (const prop in props) {
+        cacheKey += String((props as any)[prop])
+      }
+      let classList = cache.get(cacheKey)
+
+      if (!classList) {
+        classList = []
+        // Loop through `col`, `offset`, `order` breakpoint props
+        let type: keyof typeof propMap
+        for (type in propMap) {
+          propMap[type].forEach(prop => {
+            const value: string | number | boolean = (props as any)[prop]
+            const className = breakpointClass(type, prop, value)
+            if (className) classList!.push(className)
+          })
+        }
+
+        const hasColClasses = classList.some(className => className.startsWith('col-'))
+
+        classList.push({
+          // Default to .col if no other col-{bp}-* classes generated nor `cols` specified.
+          col: !hasColClasses || !props.cols,
+          [`col-${props.cols}`]: props.cols,
+          [`offset-${props.offset}`]: props.offset,
+          [`order-${props.order}`]: props.order,
+          [`align-self-${props.alignSelf}`]: props.alignSelf,
         })
+
+        cache.set(cacheKey, classList)
       }
 
-      const hasColClasses = classList.some(className => className.startsWith('col-'))
-
-      classList.push({
-        // Default to .col if no other col-{bp}-* classes generated nor `cols` specified.
-        col: !hasColClasses || !props.cols,
-        [`col-${props.cols}`]: props.cols,
-        [`offset-${props.offset}`]: props.offset,
-        [`order-${props.order}`]: props.order,
-        [`align-self-${props.alignSelf}`]: props.alignSelf,
-      })
-
-      cache.set(cacheKey, classList)
+      return h(props.tag, mergeProps(context.attrs, { class: classList }), context.slots)
     }
-
-    return h(props.tag, mergeData(data, { class: classList }), children)
   },
 })
+
+export default VCol
+

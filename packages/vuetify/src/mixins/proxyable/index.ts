@@ -1,60 +1,54 @@
-import Vue, { VueConstructor } from 'vue'
+import { computed, ref, SetupContext, watch } from 'vue'
 
-/* eslint-disable-next-line no-use-before-define */
-export type Proxyable<T extends string = 'value'> = VueConstructor<Vue & {
-  internalLazyValue: unknown
-  internalValue: unknown
-} & Record<T, any>>
-
-export function factory<T extends string = 'value'> (prop?: T, event?: string): Proxyable<T>
-export function factory (
-  prop = 'value',
-  event = 'change'
-) {
-  return Vue.extend({
-    name: 'proxyable',
-
-    model: {
-      prop,
-      event,
-    },
-
-    props: {
-      [prop]: {
-        required: false,
-      },
-    },
-
-    data () {
-      return {
-        internalLazyValue: this[prop] as unknown,
-      }
-    },
-
-    computed: {
-      internalValue: {
-        get (): unknown {
-          return this.internalLazyValue
-        },
-        set (val: any) {
-          if (val === this.internalLazyValue) return
-
-          this.internalLazyValue = val
-
-          this.$emit(event, val)
-        },
-      },
-    },
-
-    watch: {
-      [prop] (val) {
-        this.internalLazyValue = val
-      },
-    },
-  })
+export type ProxyableProps<T extends string = 'value'> = {
+  [K in T]: { required: false }
 }
 
-/* eslint-disable-next-line no-redeclare */
-const Proxyable = factory()
+export const proxyableProps: <T extends string = 'value'>(prop?: T) => ProxyableProps<T> = <T extends string = 'value'>(prop: T = 'value' as any) => ({
+  [prop]: { required: false }
+})
+
+export function proxyable<T extends string = 'value'>(prop?: T, event = 'change') {
+  const useProxyable = useProxyableFactory(prop, event)
+  const _proxyableProps = proxyableProps(prop)
+  return {
+    useProxyable,
+    proxyableProps: _proxyableProps,
+  }
+}
+
+// TODO: check this
+// model: {
+//   prop,
+//   event,
+// },
+
+export function useProxyableFactory<T extends string = 'value'>(prop: T = 'value' as any, event = 'change') {
+  function useProxyable(props: { [K in T]?: unknown }, context: SetupContext) {
+    const internalLazyValue = ref(props[prop] as unknown)
+    const internalValue = computed({
+      get(): unknown {
+        return internalLazyValue.value
+      },
+      set(val: any) {
+        if (val === internalLazyValue.value) return
+
+        internalLazyValue.value = val
+
+        context.emit(event, val)
+      },
+    })
+    watch(() => props[prop], (val) => {
+      internalLazyValue.value = val
+    })
+    return {
+      internalLazyValue,
+      internalValue,
+    }
+  }
+  return useProxyable
+}
+
+const Proxyable = useProxyableFactory()
 
 export default Proxyable

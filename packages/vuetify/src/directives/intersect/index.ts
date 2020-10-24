@@ -1,4 +1,4 @@
-import { VNodeDirective } from 'vue/types/vnode'
+import { DirectiveBinding, ObjectDirective } from 'vue'
 
 type ObserveHandler = (
   entries: IntersectionObserverEntry[],
@@ -6,15 +6,14 @@ type ObserveHandler = (
   isIntersecting: boolean,
 ) => void
 
-interface ObserveVNodeDirective extends Omit<VNodeDirective, 'modifiers'> {
-  value?: ObserveHandler | { handler: ObserveHandler, options?: IntersectionObserverInit }
+interface ObserveVNodeDirective extends Omit<DirectiveBinding<ObserveHandler | { handler: ObserveHandler, options?: IntersectionObserverInit }>, 'modifiers'> {
   modifiers?: {
     once?: boolean
     quiet?: boolean
   }
 }
 
-function inserted (el: HTMLElement, binding: ObserveVNodeDirective) {
+function inserted(el: HTMLElement, binding: ObserveVNodeDirective) {
   const modifiers = binding.modifiers || {}
   const value = binding.value
   const { handler, options } = typeof value === 'object'
@@ -52,7 +51,7 @@ function inserted (el: HTMLElement, binding: ObserveVNodeDirective) {
   observer.observe(el)
 }
 
-function unbind (el: HTMLElement) {
+function unbind(el: HTMLElement) {
   /* istanbul ignore if */
   if (!el._observe) return
 
@@ -60,9 +59,9 @@ function unbind (el: HTMLElement) {
   delete el._observe
 }
 
-export const Intersect = {
-  inserted,
-  unbind,
+export const Intersect: ObjectDirective = {
+  mounted: inserted,
+  unmounted: unbind,
 }
 
 export default Intersect

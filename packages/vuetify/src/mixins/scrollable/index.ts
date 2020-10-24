@@ -1,11 +1,16 @@
+import { computed, ExtractPropTypes, nextTick, onMounted, reactive, Ref, watch } from 'vue'
 // Directives
 import { Scroll } from '../../directives'
-
 // Utilities
 import { consoleWarn } from '../../util/console'
 
-// Types
-import Vue from 'vue'
+
+export const scrollableProps = {
+  scrollTarget: String,
+  scrollThreshold: [String, Number],
+}
+
+export const scrollableDirective = { Scroll }
 
 /**
  * Scrollable
@@ -16,17 +21,8 @@ import Vue from 'vue'
  * met.
  */
 /* @vue/component */
-export default Vue.extend({
-  name: 'scrollable',
-
-  directives: { Scroll },
-
-  props: {
-    scrollTarget: String,
-    scrollThreshold: [String, Number],
-  },
-
-  data: () => ({
+export default function useScrollable(props: ExtractPropTypes<typeof scrollableProps>) {
+  const data = reactive({
     currentScroll: 0,
     currentThreshold: 0,
     isActive: false,
@@ -34,71 +30,72 @@ export default Vue.extend({
     previousScroll: 0,
     savedScroll: 0,
     target: null as Element | null,
-  }),
+  })
 
-  computed: {
-    /**
-     * A computed property that returns
-     * whether scrolling features are
-     * enabled or disabled
-     */
-    canScroll (): boolean {
-      return typeof window !== 'undefined'
-    },
-    /**
-     * The threshold that must be met before
-     * thresholdMet function is invoked
-     */
-    computedScrollThreshold (): number {
-      return this.scrollThreshold
-        ? Number(this.scrollThreshold)
-        : 300
-    },
-  },
+  /*
+   * A computed property that returns
+   * whether scrolling features are
+   * enabled or disabled
+   */
+  const canScroll: Ref<boolean> = computed(() => {
+    return typeof window !== 'undefined'
+  })
+  /*
+   * The threshold that must be met before
+   * thresholdMet function is invoked
+   */
+  const computedScrollThreshold: Ref<number> = computed(() => {
+    return props.scrollThreshold
+      ? Number(props.scrollThreshold)
+      : 300
+  })
 
-  watch: {
-    isScrollingUp () {
-      this.savedScroll = this.savedScroll || this.currentScroll
-    },
-    isActive () {
-      this.savedScroll = 0
-    },
-  },
+  watch(() => data.isScrollingUp, () => {
+    data.savedScroll = data.savedScroll || data.currentScroll
+  })
+  watch(() => data.isActive, () => {
+    data.savedScroll = 0
+  })
 
-  mounted () {
-    if (this.scrollTarget) {
-      this.target = document.querySelector(this.scrollTarget)
+  onMounted(() => {
+    if (props.scrollTarget) {
+      data.target = document.querySelector(props.scrollTarget)
 
-      if (!this.target) {
-        consoleWarn(`Unable to locate element with identifier ${this.scrollTarget}`, this)
+      if (!data.target) {
+        consoleWarn(`Unable to locate element with identifier ${props.scrollTarget}`, this)
       }
     }
-  },
+  })
 
-  methods: {
-    onScroll () {
-      if (!this.canScroll) return
+  function onScroll() {
+    if (!canScroll.value) return
 
-      this.previousScroll = this.currentScroll
-      this.currentScroll = this.target
-        ? this.target.scrollTop
-        : window.pageYOffset
+    data.previousScroll = data.currentScroll
+    data.currentScroll = data.target
+      ? data.target.scrollTop
+      : window.pageYOffset
 
-      this.isScrollingUp = this.currentScroll < this.previousScroll
-      this.currentThreshold = Math.abs(this.currentScroll - this.computedScrollThreshold)
+    data.isScrollingUp = data.currentScroll < data.previousScroll
+    data.currentThreshold = Math.abs(data.currentScroll - computedScrollThreshold.value)
 
-      this.$nextTick(() => {
-        if (
-          Math.abs(this.currentScroll - this.savedScroll) >
-          this.computedScrollThreshold
-        ) this.thresholdMet()
-      })
-    },
-    /**
-     * The method invoked when
-     * scrolling in any direction
-     * has exceeded the threshold
-     */
-    thresholdMet () { /* noop */ },
-  },
-})
+    nextTick(() => {
+      if (
+        Math.abs(data.currentScroll - data.savedScroll) >
+        computedScrollThreshold.value
+      ) thresholdMet()
+    })
+  }
+  /**
+   * The method invoked when
+   * scrolling in any direction
+   * has exceeded the threshold
+   */
+  function thresholdMet() { /* noop */ }
+
+  return {
+    canScroll,
+    computedScrollThreshold,
+    onScroll,
+    thresholdMet,
+  }
+}

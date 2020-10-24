@@ -1,263 +1,263 @@
-// Styles
-import './VItemGroup.sass'
-
+import { useIsDestroyed } from '@composables/destroy';
+import { computed, defineComponent, ExtractPropTypes, getCurrentInstance, h, nextTick, provide, reactive, Ref, SetupContext, watch } from 'vue';
 // Mixins
-import Groupable from '../../mixins/groupable'
-import Proxyable from '../../mixins/proxyable'
-import Themeable from '../../mixins/themeable'
-
-// Utilities
-import mixins from '../../util/mixins'
-import { consoleWarn } from '../../util/console'
-
+import { GroupableInstance, GroupableKey } from '../../mixins/groupable';
+import { proxyableProps, useProxyableFactory } from '../../mixins/proxyable';
 // Types
-import { VNode } from 'vue/types'
+import useThemeable, { themeableProps } from '../../mixins/themeable';
+import { consoleWarn } from '../../util/console';
+// Styles
+import './VItemGroup.sass';
 
-export type GroupableInstance = InstanceType<typeof Groupable> & {
-  id?: string
-  to?: any
-  value?: any
- }
-
-export const BaseItemGroup = mixins(
-  Proxyable,
-  Themeable
-).extend({
-  name: 'base-item-group',
-
-  props: {
-    activeClass: {
-      type: String,
-      default: 'v-item--active',
-    },
-    mandatory: Boolean,
-    max: {
-      type: [Number, String],
-      default: null,
-    },
-    multiple: Boolean,
+export const VItemGroupProps = {
+  ...proxyableProps(),
+  ...themeableProps,
+  activeClass: {
+    type: String,
+    default: 'v-item--active',
   },
+  mandatory: Boolean,
+  max: {
+    type: [Number, String],
+    default: null,
+  },
+  multiple: Boolean,
+}
 
-  data () {
+const useProxyable = useProxyableFactory()
+
+export function useVItemGroup(props: ExtractPropTypes<typeof VItemGroupProps>, context: SetupContext) {
+  const { themeClasses } = useThemeable(props)
+  const { internalValue } = useProxyable(props, context)
+  const _isDestroyed = useIsDestroyed()
+  const data = reactive({
+    // As long as a value is defined, show it
+    // Otherwise, check if multiple
+    // to determine which default to provide
+    internalLazyValue: props.value !== undefined
+      ? props.value
+      : props.multiple ? [] : undefined,
+    items: [] as GroupableInstance[],
+  })
+
+  const classes: Ref<Record<string, boolean>> = computed(() => {
     return {
-      // As long as a value is defined, show it
-      // Otherwise, check if multiple
-      // to determine which default to provide
-      internalLazyValue: this.value !== undefined
-        ? this.value
-        : this.multiple ? [] : undefined,
-      items: [] as GroupableInstance[],
+      'v-item-group': true,
+      ...themeClasses.value,
     }
-  },
+  })
+  const selectedIndex: Ref<number> = computed(() => {
+    return (selectedItem.value && data.items.indexOf(selectedItem.value)) || -1
+  })
+  const selectedItem: Ref<GroupableInstance | undefined> = computed(() => {
+    if (props.multiple) return undefined
 
-  computed: {
-    classes (): Record<string, boolean> {
-      return {
-        'v-item-group': true,
-        ...this.themeClasses,
-      }
-    },
-    selectedIndex (): number {
-      return (this.selectedItem && this.items.indexOf(this.selectedItem)) || -1
-    },
-    selectedItem (): GroupableInstance | undefined {
-      if (this.multiple) return undefined
+    return selectedItems.value[0]
+  })
+  const selectedItems: Ref<GroupableInstance[]> = computed(() => {
+    return data.items.filter((item, index) => {
+      return toggleMethod.value(getValue(item, index))
+    })
+  })
+  const selectedValues: Ref<any[]> = computed(() => {
+    if (internalValue.value == null) return []
 
-      return this.selectedItems[0]
-    },
-    selectedItems (): GroupableInstance[] {
-      return this.items.filter((item, index) => {
-        return this.toggleMethod(this.getValue(item, index))
-      })
-    },
-    selectedValues (): any[] {
-      if (this.internalValue == null) return []
-
-      return Array.isArray(this.internalValue)
-        ? this.internalValue
-        : [this.internalValue]
-    },
-    toggleMethod (): (v: any) => boolean {
-      if (!this.multiple) {
-        return (v: any) => this.internalValue === v
-      }
-
-      const internalValue = this.internalValue
-      if (Array.isArray(internalValue)) {
-        return (v: any) => internalValue.includes(v)
-      }
-
-      return () => false
-    },
-  },
-
-  watch: {
-    internalValue: 'updateItemsState',
-    items: 'updateItemsState',
-  },
-
-  created () {
-    if (this.multiple && !Array.isArray(this.internalValue)) {
-      consoleWarn('Model must be bound to an array if the multiple property is true.', this)
+    return Array.isArray(internalValue.value)
+      ? internalValue.value
+      : [internalValue.value]
+  })
+  const toggleMethod: Ref<(v: any) => boolean> = computed(() => {
+    if (!props.multiple) {
+      return (v: any) => internalValue.value === v
     }
-  },
 
-  methods: {
+    const _internalValue = internalValue.value
+    if (Array.isArray(_internalValue)) {
+      return (v: any) => _internalValue.includes(v)
+    }
 
-    genData (): object {
-      return {
-        class: this.classes,
+    return () => false
+  })
+
+  watch([() => internalValue.value,], updateItemsState)
+
+  if (props.multiple && !Array.isArray(internalValue.value)) {
+    consoleWarn('Model must be bound to an array if the multiple property is true.', context)
+  }
+
+  function genData(): object {
+    return {
+      class: classes.value,
+    }
+  }
+  function getValue(item: GroupableInstance, i: number): unknown {
+    return item.value == null || item.value === ''
+      ? i
+      : item.value
+  }
+  function onClick(item: GroupableInstance) {
+    updateInternalValue(
+      getValue(item, data.items.indexOf(item))
+    )
+  }
+  function register(item: GroupableInstance) {
+    const index = data.items.push(item) - 1
+
+    item.$on('change', () => onClick(item))
+
+    // If no value provided and mandatory,
+    // assign first registered item
+    if (props.mandatory && !selectedValues.value.length) {
+      updateMandatory()
+    }
+
+    updateItem(item, index)
+  }
+  function unregister(item: GroupableInstance) {
+    if (_isDestroyed.value) return
+
+    const index = data.items.indexOf(item)
+    const value = getValue(item, index)
+
+    data.items.splice(index, 1)
+
+    const valueIndex = selectedValues.value.indexOf(value)
+
+    // Items is not selected, do nothing
+    if (valueIndex < 0) return
+
+    // If not mandatory, use regular update process
+    if (!props.mandatory) {
+      return updateInternalValue(value)
+    }
+
+    // Remove the value
+    if (props.multiple && Array.isArray(internalValue.value)) {
+      internalValue.value = internalValue.value.filter(v => v !== value)
+    } else {
+      internalValue.value = undefined
+    }
+
+    // If mandatory and we have no selection
+    // add the last item as value
+    /* istanbul ignore else */
+    if (!selectedItems.value.length) {
+      updateMandatory(true)
+    }
+  }
+  function updateItem(item: GroupableInstance, index: number) {
+    const value = getValue(item, index)
+
+    item.isActive = toggleMethod.value(value)
+  }
+  // https://github.com/vuetifyjs/vuetify/issues/5352
+  function updateItemsState() {
+    nextTick(() => {
+      if (props.mandatory &&
+        !selectedItems.value.length
+      ) {
+        return updateMandatory()
       }
-    },
-    getValue (item: GroupableInstance, i: number): unknown {
-      return item.value == null || item.value === ''
-        ? i
-        : item.value
-    },
-    onClick (item: GroupableInstance) {
-      this.updateInternalValue(
-        this.getValue(item, this.items.indexOf(item))
-      )
-    },
-    register (item: GroupableInstance) {
-      const index = this.items.push(item) - 1
 
-      item.$on('change', () => this.onClick(item))
+      // TODO: Make this smarter so it
+      // doesn't have to iterate every
+      // child in an update
+      data.items.forEach(updateItem)
+    })
+  }
+  function updateInternalValue(value: any) {
+    props.multiple
+      ? updateMultiple(value)
+      : updateSingle(value)
+  }
+  function updateMandatory(last?: boolean) {
+    if (!data.items.length) return
 
-      // If no value provided and mandatory,
-      // assign first registered item
-      if (this.mandatory && !this.selectedValues.length) {
-        this.updateMandatory()
-      }
+    const items = data.items.slice()
 
-      this.updateItem(item, index)
-    },
-    unregister (item: GroupableInstance) {
-      if (this._isDestroyed) return
+    if (last) items.reverse()
 
-      const index = this.items.indexOf(item)
-      const value = this.getValue(item, index)
+    const item = items.find(item => !item.disabled)
 
-      this.items.splice(index, 1)
+    // If no tabs are available
+    // aborts mandatory value
+    if (!item) return
 
-      const valueIndex = this.selectedValues.indexOf(value)
+    const index = data.items.indexOf(item)
 
-      // Items is not selected, do nothing
-      if (valueIndex < 0) return
+    updateInternalValue(
+      getValue(item, index)
+    )
+  }
+  function updateMultiple(value: any) {
+    const defaultValue = Array.isArray(internalValue.value)
+      ? internalValue.value
+      : []
+    const _internalValue = defaultValue.slice()
+    const index = _internalValue.findIndex(val => val === value)
 
-      // If not mandatory, use regular update process
-      if (!this.mandatory) {
-        return this.updateInternalValue(value)
-      }
+    if (
+      props.mandatory &&
+      // Item already exists
+      index > -1 &&
+      // value would be reduced below min
+      _internalValue.length - 1 < 1
+    ) return
 
-      // Remove the value
-      if (this.multiple && Array.isArray(this.internalValue)) {
-        this.internalValue = this.internalValue.filter(v => v !== value)
-      } else {
-        this.internalValue = undefined
-      }
+    if (
+      // Max is set
+      props.max != null &&
+      // Item doesn't exist
+      index < 0 &&
+      // value would be increased above max
+      _internalValue.length + 1 > props.max
+    ) return
 
-      // If mandatory and we have no selection
-      // add the last item as value
-      /* istanbul ignore else */
-      if (!this.selectedItems.length) {
-        this.updateMandatory(true)
-      }
-    },
-    updateItem (item: GroupableInstance, index: number) {
-      const value = this.getValue(item, index)
+    index > -1
+      ? _internalValue.splice(index, 1)
+      : _internalValue.push(value)
 
-      item.isActive = this.toggleMethod(value)
-    },
-    // https://github.com/vuetifyjs/vuetify/issues/5352
-    updateItemsState () {
-      this.$nextTick(() => {
-        if (this.mandatory &&
-          !this.selectedItems.length
-        ) {
-          return this.updateMandatory()
-        }
+    internalValue.value = _internalValue
+  }
+  function updateSingle(value: any) {
+    const isSame = value === internalValue.value
 
-        // TODO: Make this smarter so it
-        // doesn't have to iterate every
-        // child in an update
-        this.items.forEach(this.updateItem)
-      })
-    },
-    updateInternalValue (value: any) {
-      this.multiple
-        ? this.updateMultiple(value)
-        : this.updateSingle(value)
-    },
-    updateMandatory (last?: boolean) {
-      if (!this.items.length) return
+    if (props.mandatory && isSame) return
 
-      const items = this.items.slice()
+    internalValue.value = isSame ? undefined : value
+  }
 
-      if (last) items.reverse()
+  const result = {
+    classes,
+    selectedIndex,
+    selectedItem,
+    selectedItems,
+    selectedValues,
+    toggleMethod,
+    genData,
+    getValue,
+    onClick,
+    register,
+    unregister,
+    updateItem,
+    updateItemsState,
+    updateInternalValue,
+    updateMandatory,
+    updateMultiple,
+    updateSingle,
+  }
 
-      const item = items.find(item => !item.disabled)
+  provide(GroupableKey, result)
 
-      // If no tabs are available
-      // aborts mandatory value
-      if (!item) return
+  return result
+}
 
-      const index = this.items.indexOf(item)
-
-      this.updateInternalValue(
-        this.getValue(item, index)
-      )
-    },
-    updateMultiple (value: any) {
-      const defaultValue = Array.isArray(this.internalValue)
-        ? this.internalValue
-        : []
-      const internalValue = defaultValue.slice()
-      const index = internalValue.findIndex(val => val === value)
-
-      if (
-        this.mandatory &&
-        // Item already exists
-        index > -1 &&
-        // value would be reduced below min
-        internalValue.length - 1 < 1
-      ) return
-
-      if (
-        // Max is set
-        this.max != null &&
-        // Item doesn't exist
-        index < 0 &&
-        // value would be increased above max
-        internalValue.length + 1 > this.max
-      ) return
-
-      index > -1
-        ? internalValue.splice(index, 1)
-        : internalValue.push(value)
-
-      this.internalValue = internalValue
-    },
-    updateSingle (value: any) {
-      const isSame = value === this.internalValue
-
-      if (this.mandatory && isSame) return
-
-      this.internalValue = isSame ? undefined : value
-    },
-  },
-
-  render (h): VNode {
-    return h('div', this.genData(), this.$slots.default)
-  },
-})
-
-export default BaseItemGroup.extend({
+export default defineComponent({
   name: 'v-item-group',
-
-  provide (): object {
-    return {
-      itemGroup: this,
-    }
-  },
+  props: VItemGroupProps,
+  setup(props, context) {
+    const { genData } = useVItemGroup(props, context)
+    return h('div', genData(), context.slots.default?.())
+  }
 })
+

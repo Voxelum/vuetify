@@ -1,11 +1,11 @@
-import Vue, { WatchHandler } from 'vue'
+import { ExtractPropTypes, reactive, WatchHandler } from 'vue'
 
 /**
  * This mixin provides `attrs$` and `listeners$` to work around
  * vue bug https://github.com/vuejs/vue/issues/10115
  */
 
-function makeWatcher (property: string): ThisType<Vue> & WatchHandler<any> {
+function makeWatcher(property: string): ThisType<Vue> & WatchHandler<any> {
   return function (this: Vue, val, oldVal) {
     for (const attr in oldVal) {
       if (!Object.prototype.hasOwnProperty.call(val, attr)) {
@@ -18,16 +18,15 @@ function makeWatcher (property: string): ThisType<Vue> & WatchHandler<any> {
   }
 }
 
-export default Vue.extend({
-  data: () => ({
+export default function useBindsAttrs(props: ExtractPropTypes<typeof bindsAttrsProps>) {
+  const data = reactive({
     attrs$: {} as Dictionary<string>,
     listeners$: {} as Dictionary<Function | Function[]>,
-  }),
+  })
 
-  created () {
-    // Work around unwanted re-renders: https://github.com/vuejs/vue/issues/10115
-    // Make sure to use `attrs$` instead of `$attrs` (confusing right?)
-    this.$watch('$attrs', makeWatcher('attrs$'), { immediate: true })
-    this.$watch('$listeners', makeWatcher('listeners$'), { immediate: true })
-  },
-})
+  // Work around unwanted re-renders: https://github.com/vuejs/vue/issues/10115
+  // Make sure to use `attrs$` instead of `$attrs` (confusing right?)
+  // watch('$attrs', makeWatcher('attrs$'), { immediate: true })
+  // watch('$listeners', makeWatcher('listeners$'), { immediate: true })
+}
+

@@ -1,235 +1,224 @@
+import { ExtractPropTypes, h, onBeforeUnmount, reactive, Ref, render, watch } from 'vue'
 // Components
 import VOverlay from '../../components/VOverlay'
-
 // Utilities
 import {
-  keyCodes,
   addOnceEventListener,
   addPassiveEventListener,
-  getZIndex,
+  getZIndex, keyCodes
 } from '../../util/helpers'
 
-// Types
-import Vue from 'vue'
 
-interface Toggleable extends Vue {
-  isActive?: boolean
-}
-
-interface Stackable extends Vue {
-  activeZIndex: number
-}
-
-interface options {
-  absolute?: boolean
-  $refs: {
-    dialog?: HTMLElement
-    content?: HTMLElement
-  }
+export const overlayableProps = {
+  hideOverlay: Boolean,
+  overlayColor: String,
+  overlayOpacity: [Number, String],
+  isActive: Boolean,
+  activeZIndex: { type: Number, required: true },
+  absolute: Boolean,
 }
 
 /* @vue/component */
-export default Vue.extend<Vue & Toggleable & Stackable & options>().extend({
-  name: 'overlayable',
+export default function useOverlayable(elRef: Ref<Element>, dialogRef: Ref<HTMLElement | undefined>, contentRef: Ref<HTMLElement | undefined>, props: ExtractPropTypes<typeof overlayableProps>) {
+  const data = reactive({
+    animationFrame: 0,
+    overlay: null as InstanceType<typeof VOverlay> | null,
+  })
 
-  props: {
-    hideOverlay: Boolean,
-    overlayColor: String,
-    overlayOpacity: [Number, String],
-  },
+  watch(() => props.hideOverlay, (value) => {
+    if (!props.isActive) return
 
-  data () {
-    return {
-      animationFrame: 0,
-      overlay: null as InstanceType<typeof VOverlay> | null,
+    if (value) removeOverlay()
+    else genOverlay()
+  })
+
+  onBeforeUnmount(() => {
+    removeOverlay()
+  })
+
+  function createOverlay() {
+    const overlay = h(VOverlay, {
+      absolute: props.absolute,
+      value: false,
+      color: props.overlayColor,
+      opacity: props.overlayOpacity,
+    })
+
+    const parent = props.absolute
+      ? elRef.value.parentNode
+      : document.querySelector('[data-app]')
+
+
+    if (parent) {
+      render(overlay, parent as Element)
     }
-  },
 
-  watch: {
-    hideOverlay (value) {
-      if (!this.isActive) return
+    data.overlay = overlay.component!.proxy
+  }
+  function genOverlay() {
+    hideScroll()
 
-      if (value) this.removeOverlay()
-      else this.genOverlay()
-    },
-  },
+    if (props.hideOverlay) return
 
-  beforeDestroy () {
-    this.removeOverlay()
-  },
+    if (!data.overlay) createOverlay()
 
-  methods: {
-    createOverlay () {
-      const overlay = new VOverlay({
-        propsData: {
-          absolute: this.absolute,
-          value: false,
-          color: this.overlayColor,
-          opacity: this.overlayOpacity,
-        },
-      })
+    data.animationFrame = requestAnimationFrame(() => {
+      if (!data.overlay) return
 
-      overlay.$mount()
-
-      const parent = this.absolute
-        ? this.$el.parentNode
-        : document.querySelector('[data-app]')
-
-      parent && parent.insertBefore(overlay.$el, parent.firstChild)
-
-      this.overlay = overlay
-    },
-    genOverlay () {
-      this.hideScroll()
-
-      if (this.hideOverlay) return
-
-      if (!this.overlay) this.createOverlay()
-
-      this.animationFrame = requestAnimationFrame(() => {
-        if (!this.overlay) return
-
-        if (this.activeZIndex !== undefined) {
-          this.overlay.zIndex = String(this.activeZIndex - 1)
-        } else if (this.$el) {
-          this.overlay.zIndex = getZIndex(this.$el)
-        }
-
-        this.overlay.value = true
-      })
-
-      return true
-    },
-    /** removeOverlay(false) will not restore the scollbar afterwards */
-    removeOverlay (showScroll = true) {
-      if (this.overlay) {
-        addOnceEventListener(this.overlay.$el, 'transitionend', () => {
-          if (
-            !this.overlay ||
-            !this.overlay.$el ||
-            !this.overlay.$el.parentNode ||
-            this.overlay.value
-          ) return
-
-          this.overlay.$el.parentNode.removeChild(this.overlay.$el)
-          this.overlay.$destroy()
-          this.overlay = null
-        })
-
-        // Cancel animation frame in case
-        // overlay is removed before it
-        // has finished its animation
-        cancelAnimationFrame(this.animationFrame)
-
-        this.overlay.value = false
+      if (props.activeZIndex !== undefined) {
+        data.overlay.zIndex = String(props.activeZIndex - 1)
+      } else if (elRef.value) {
+        data.overlay.zIndex = getZIndex(elRef.value)
       }
 
-      showScroll && this.showScroll()
-    },
-    scrollListener (e: WheelEvent & KeyboardEvent) {
-      if (e.type === 'keydown') {
+      data.overlay.value = true
+    })
+
+    return true
+  }
+  /** removeOverlay(false) will not restore the scollbar afterwards */
+  function removeOverlay(_showScroll = true) {
+    if (data.overlay) {
+      addOnceEventListener(data.overlay.$el, 'transitionend', () => {
         if (
-          ['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as Element).tagName) ||
-          // https://github.com/vuetifyjs/vuetify/issues/4715
-          (e.target as HTMLElement).isContentEditable
+          !data.overlay ||
+          !data.overlay.$el ||
+          !data.overlay.$el.parentNode ||
+          data.overlay.value
         ) return
 
-        const up = [keyCodes.up, keyCodes.pageup]
-        const down = [keyCodes.down, keyCodes.pagedown]
+        data.overlay.$el.parentNode.removeChild(data.overlay.$el)
+        data.overlay.$destroy()
+        data.overlay = null
+      })
 
-        if (up.includes(e.keyCode)) {
-          (e as any).deltaY = -1
-        } else if (down.includes(e.keyCode)) {
-          (e as any).deltaY = 1
-        } else {
-          return
-        }
-      }
+      // Cancel animation frame in case
+      // overlay is removed before it
+      // has finished its animation
+      cancelAnimationFrame(data.animationFrame)
 
-      if (e.target === this.overlay ||
-        (e.type !== 'keydown' && e.target === document.body) ||
-        this.checkPath(e)) e.preventDefault()
-    },
-    hasScrollbar (el?: Element) {
-      if (!el || el.nodeType !== Node.ELEMENT_NODE) return false
+      data.overlay.value = false
+    }
 
-      const style = window.getComputedStyle(el)
-      return ['auto', 'scroll'].includes(style.overflowY!) && el.scrollHeight > el.clientHeight
-    },
-    shouldScroll (el: Element, delta: number) {
-      if (el.scrollTop === 0 && delta < 0) return true
-      return el.scrollTop + el.clientHeight === el.scrollHeight && delta > 0
-    },
-    isInside (el: Element, parent: Element): boolean {
-      if (el === parent) {
-        return true
-      } else if (el === null || el === document.body) {
-        return false
+    _showScroll && showScroll()
+  }
+  function scrollListener(e: WheelEvent & KeyboardEvent) {
+    if (e.type === 'keydown') {
+      if (
+        ['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as Element).tagName) ||
+        // https://github.com/vuetifyjs/vuetify/issues/4715
+        (e.target as HTMLElement).isContentEditable
+      ) return
+
+      const up = [keyCodes.up, keyCodes.pageup]
+      const down = [keyCodes.down, keyCodes.pagedown]
+
+      if (up.includes(e.keyCode)) {
+        (e as any).deltaY = -1
+      } else if (down.includes(e.keyCode)) {
+        (e as any).deltaY = 1
       } else {
-        return this.isInside(el.parentNode as Element, parent)
+        return
       }
-    },
-    checkPath (e: WheelEvent) {
-      const path = e.path || this.composedPath(e)
-      const delta = e.deltaY
+    }
 
-      if (e.type === 'keydown' && path[0] === document.body) {
-        const dialog = this.$refs.dialog
-        // getSelection returns null in firefox in some edge cases, can be ignored
-        const selected = window.getSelection()!.anchorNode as Element
-        if (dialog && this.hasScrollbar(dialog) && this.isInside(selected, dialog)) {
-          return this.shouldScroll(dialog, delta)
-        }
-        return true
-      }
+    if (e.target === data.overlay ||
+      (e.type !== 'keydown' && e.target === document.body) ||
+      checkPath(e)) e.preventDefault()
+  }
+  function hasScrollbar(el?: Element) {
+    if (!el || el.nodeType !== Node.ELEMENT_NODE) return false
 
-      for (let index = 0; index < path.length; index++) {
-        const el = path[index]
-
-        if (el === document) return true
-        if (el === document.documentElement) return true
-        if (el === this.$refs.content) return true
-
-        if (this.hasScrollbar(el as Element)) return this.shouldScroll(el as Element, delta)
-      }
-
+    const style = window.getComputedStyle(el)
+    return ['auto', 'scroll'].includes(style.overflowY!) && el.scrollHeight > el.clientHeight
+  }
+  function shouldScroll(el: Element, delta: number) {
+    if (el.scrollTop === 0 && delta < 0) return true
+    return el.scrollTop + el.clientHeight === el.scrollHeight && delta > 0
+  }
+  function isInside(el: Element, parent: Element): boolean {
+    if (el === parent) {
       return true
-    },
-    /**
-     * Polyfill for Event.prototype.composedPath
-     */
-    composedPath (e: WheelEvent): EventTarget[] {
-      if (e.composedPath) return e.composedPath()
+    } else if (el === null || el === document.body) {
+      return false
+    } else {
+      return isInside(el.parentNode as Element, parent)
+    }
+  }
+  function checkPath(e: WheelEvent) {
+    const path = e.path || composedPath(e)
+    const delta = e.deltaY
 
-      const path = []
-      let el = e.target as Element
-
-      while (el) {
-        path.push(el)
-
-        if (el.tagName === 'HTML') {
-          path.push(document)
-          path.push(window)
-
-          return path
-        }
-
-        el = el.parentElement!
+    if (e.type === 'keydown' && path[0] === document.body) {
+      const dialog = dialogRef.value
+      // getSelection returns null in firefox in some edge cases, can be ignored
+      const selected = window.getSelection()!.anchorNode as Element
+      if (dialog && hasScrollbar(dialog) && isInside(selected, dialog)) {
+        return shouldScroll(dialog, delta)
       }
-      return path
-    },
-    hideScroll () {
-      if (this.$vuetify.breakpoint.smAndDown) {
-        document.documentElement!.classList.add('overflow-y-hidden')
-      } else {
-        addPassiveEventListener(window, 'wheel', this.scrollListener as EventHandlerNonNull, { passive: false })
-        window.addEventListener('keydown', this.scrollListener as EventHandlerNonNull)
+      return true
+    }
+
+    for (let index = 0; index < path.length; index++) {
+      const el = path[index]
+
+      if (el === document) return true
+      if (el === document.documentElement) return true
+      if (el === contentRef.value) return true
+
+      if (hasScrollbar(el as Element)) return shouldScroll(el as Element, delta)
+    }
+
+    return true
+  }
+  /**
+   * Polyfill for Event.prototype.composedPath
+   */
+  function composedPath(e: WheelEvent): EventTarget[] {
+    if (e.composedPath) return e.composedPath()
+
+    const path = []
+    let el = e.target as Element
+
+    while (el) {
+      path.push(el)
+
+      if (el.tagName === 'HTML') {
+        path.push(document)
+        path.push(window)
+
+        return path
       }
-    },
-    showScroll () {
-      document.documentElement!.classList.remove('overflow-y-hidden')
-      window.removeEventListener('wheel', this.scrollListener as EventHandlerNonNull)
-      window.removeEventListener('keydown', this.scrollListener as EventHandlerNonNull)
-    },
-  },
-})
+
+      el = el.parentElement!
+    }
+    return path
+  }
+  function hideScroll() {
+    // if (context.vuetify.breakpoint.smAndDown) {
+    //   document.documentElement!.classList.add('overflow-y-hidden')
+    // } else {
+    // TODO: check this
+    addPassiveEventListener(window, 'wheel', scrollListener as EventHandlerNonNull, { passive: false })
+    window.addEventListener('keydown', scrollListener as EventHandlerNonNull)
+    // }
+  }
+  function showScroll() {
+    document.documentElement!.classList.remove('overflow-y-hidden')
+    window.removeEventListener('wheel', scrollListener as EventHandlerNonNull)
+    window.removeEventListener('keydown', scrollListener as EventHandlerNonNull)
+  }
+  return {
+    createOverlay,
+    genOverlay,
+    removeOverlay,
+    scrollListener,
+    hasScrollbar,
+    shouldScroll,
+    isInside,
+    checkPath,
+    composedPath,
+    hideScroll,
+    showScroll,
+  }
+}

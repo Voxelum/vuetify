@@ -351,15 +351,15 @@ declare module 'vuetify/lib' {
 
 declare module 'vuetify/lib/directives' {
   // eslint-disable-next-line import/no-duplicates
-  import { DirectiveOptions } from 'vue'
+  import { Directive } from 'vue'
 
-  const ClickOutside: DirectiveOptions
-  const Intersect: DirectiveOptions
-  const Mutate: DirectiveOptions
-  const Resize: DirectiveOptions
-  const Ripple: DirectiveOptions
-  const Scroll: DirectiveOptions
-  const Touch: DirectiveOptions
+  const ClickOutside: Directive
+  const Intersect: Directive
+  const Mutate: Directive
+  const Resize: Directive
+  const Ripple: Directive
+  const Scroll: Directive
+  const Touch: Directive
 
   export {
     ClickOutside,

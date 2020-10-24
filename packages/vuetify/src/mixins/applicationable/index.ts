@@ -1,79 +1,70 @@
-import { factory as PositionableFactory } from '../positionable'
-import { TargetProp } from 'vuetify/types/services/application'
+import { useVuetify } from '@framework'
+import { TargetProp } from 'types/services/application'
+import { computed, ExtractPropTypes, getCurrentInstance, onActivated, onDeactivated, onMounted, onUnmounted, SetupContext, watch } from 'vue'
+import { positionableProps } from '../positionable'
 
-// Util
-import mixins from '../../util/mixins'
 
-export default function applicationable (value: TargetProp, events: string[] = []) {
-  /* @vue/component */
-  return mixins(PositionableFactory(['absolute', 'fixed'])).extend({
-    name: 'applicationable',
+export const applicationableProps = {
+  ...positionableProps(['absolute', 'fixed']),
+  app: Boolean,
+}
 
-    props: {
-      app: Boolean,
-    },
+// TODO: rethink how this implement
 
-    computed: {
-      applicationProperty (): TargetProp {
-        return value
-      },
-    },
+export default function applicationable(value: TargetProp, events: string[] = []) {
+  function useApplicationable(props: ExtractPropTypes<typeof applicationableProps>, context: SetupContext) {
+    const { application } = useVuetify()
+    const instance = getCurrentInstance();
+    const applicationProperty = computed(() => value)
+    watch(() => props.app, (_, prev: boolean) => {
+      prev
+        ? removeApplication(true)
+        : callUpdate()
+    })
+    watch(applicationProperty, (newVal, oldVal) => {
+      application.unregister(instance?.uid, oldVal)
+    })
+    function callUpdate() {
+      if (!props.app) return
 
-    watch: {
-      // If previous value was app
-      // reset the provided prop
-      app (x: boolean, prev: boolean) {
-        prev
-          ? this.removeApplication(true)
-          : this.callUpdate()
-      },
-      applicationProperty (newVal, oldVal) {
-        this.$vuetify.application.unregister(this._uid, oldVal)
-      },
-    },
+      application.register(
+        this._uid,
+        applicationProperty,
+        updateApplication()
+      )
+    }
+    function removeApplication(force = false) {
+      if (!force && !props.app) return
 
-    activated () {
-      this.callUpdate()
-    },
+      application.unregister(
+        this._uid,
+        applicationProperty
+      )
+    }
+    function updateApplication() { return 0 }
 
-    created () {
-      for (let i = 0, length = events.length; i < length; i++) {
-        this.$watch(events[i], this.callUpdate)
-      }
-      this.callUpdate()
-    },
+    onActivated(() => {
+      callUpdate()
+    })
+    onMounted(() => {
+      callUpdate()
+    })
+    onDeactivated(() => {
+      removeApplication()
+    })
+    onUnmounted(() => {
+      removeApplication()
+    })
+    for (let i = 0, length = events.length; i < length; i++) {
+      watch(events[i], callUpdate)
+    }
+    callUpdate()
+    return {
+      applicationProperty,
+    }
+  }
 
-    mounted () {
-      this.callUpdate()
-    },
-
-    deactivated () {
-      this.removeApplication()
-    },
-
-    destroyed () {
-      this.removeApplication()
-    },
-
-    methods: {
-      callUpdate () {
-        if (!this.app) return
-
-        this.$vuetify.application.register(
-          this._uid,
-          this.applicationProperty,
-          this.updateApplication()
-        )
-      },
-      removeApplication (force = false) {
-        if (!force && !this.app) return
-
-        this.$vuetify.application.unregister(
-          this._uid,
-          this.applicationProperty
-        )
-      },
-      updateApplication: () => 0,
-    },
-  })
+  return {
+    useApplicationable,
+  }
 }

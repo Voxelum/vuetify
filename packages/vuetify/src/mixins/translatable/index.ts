@@ -1,13 +1,10 @@
-import Vue from 'vue'
+import { computed, ExtractPropTypes, onBeforeUnmount, reactive, Ref } from 'vue'
+export const translatableProps = {
+  height: Number,
+}
 
-export default Vue.extend({
-  name: 'translatable',
-
-  props: {
-    height: Number,
-  },
-
-  data: () => ({
+export default function useTranslatable(rootRef: Ref<Element>, props: ExtractPropTypes<typeof translatableProps>) {
+  const data = reactive({
     elOffsetTop: 0,
     parallax: 0,
     parallaxDist: 0,
@@ -15,46 +12,46 @@ export default Vue.extend({
     scrollTop: 0,
     windowHeight: 0,
     windowBottom: 0,
-  }),
+  })
+  const imgHeight: Ref<number> = computed(() => {
+    return objHeight()
+  })
+  onBeforeUnmount(() => {
+    window.removeEventListener('scroll', translate, false)
+    window.removeEventListener('resize', translate, false)
+  })
+  function calcDimensions() {
+    const offset = rootRef.value.getBoundingClientRect()
 
-  computed: {
-    imgHeight (): number {
-      return this.objHeight()
-    },
-  },
+    data.scrollTop = window.pageYOffset
+    data.parallaxDist = imgHeight.value - props.height! // TODO: fix this type
+    data.elOffsetTop = offset.top + data.scrollTop
+    data.windowHeight = window.innerHeight
+    data.windowBottom = data.scrollTop + data.windowHeight
+  }
+  function listeners() {
+    window.addEventListener('scroll', translate, false)
+    window.addEventListener('resize', translate, false)
+  }
+  /** @abstract **/
+  function objHeight(): number {
+    throw new Error('Not implemented !')
+  }
+  function translate() {
+    calcDimensions()
 
-  beforeDestroy () {
-    window.removeEventListener('scroll', this.translate, false)
-    window.removeEventListener('resize', this.translate, false)
-  },
+    data.percentScrolled = (
+      (data.windowBottom - data.elOffsetTop) /
+      (parseInt(props.height!) + data.windowHeight) // TODO: fix this type
+    )
 
-  methods: {
-    calcDimensions () {
-      const offset = this.$el.getBoundingClientRect()
-
-      this.scrollTop = window.pageYOffset
-      this.parallaxDist = this.imgHeight - this.height
-      this.elOffsetTop = offset.top + this.scrollTop
-      this.windowHeight = window.innerHeight
-      this.windowBottom = this.scrollTop + this.windowHeight
-    },
-    listeners () {
-      window.addEventListener('scroll', this.translate, false)
-      window.addEventListener('resize', this.translate, false)
-    },
-    /** @abstract **/
-    objHeight (): number {
-      throw new Error('Not implemented !')
-    },
-    translate () {
-      this.calcDimensions()
-
-      this.percentScrolled = (
-        (this.windowBottom - this.elOffsetTop) /
-        (parseInt(this.height) + this.windowHeight)
-      )
-
-      this.parallax = Math.round(this.parallaxDist * this.percentScrolled)
-    },
-  },
-})
+    data.parallax = Math.round(data.parallaxDist * data.percentScrolled)
+  }
+  return {
+    imgHeight,
+    calcDimensions,
+    listeners,
+    objHeight,
+    translate,
+  }
+}

@@ -1,33 +1,28 @@
+import { computed, ExtractPropTypes, PropType, Ref } from 'vue'
 // Helpers
 import { convertToUnit } from '../../util/helpers'
 
-// Types
-import Vue, { PropType } from 'vue'
-
-export type NumberOrNumberString = PropType<string | number | undefined>
-
-export default Vue.extend({
-  name: 'measurable',
-
-  props: {
+export const measurableProps = {
     height: [Number, String] as NumberOrNumberString,
     maxHeight: [Number, String] as NumberOrNumberString,
     maxWidth: [Number, String] as NumberOrNumberString,
     minHeight: [Number, String] as NumberOrNumberString,
     minWidth: [Number, String] as NumberOrNumberString,
     width: [Number, String] as NumberOrNumberString,
-  },
+}
 
-  computed: {
-    measurableStyles (): object {
+export type NumberOrNumberString = PropType<string | number | undefined>
+
+export default function useMeasurable(props: ExtractPropTypes<typeof measurableProps>) {
+    const measurableStyles: Ref<object> = computed(() => {
       const styles: Record<string, string> = {}
 
-      const height = convertToUnit(this.height)
-      const minHeight = convertToUnit(this.minHeight)
-      const minWidth = convertToUnit(this.minWidth)
-      const maxHeight = convertToUnit(this.maxHeight)
-      const maxWidth = convertToUnit(this.maxWidth)
-      const width = convertToUnit(this.width)
+      const height = convertToUnit(props.height)
+      const minHeight = convertToUnit(props.minHeight)
+      const minWidth = convertToUnit(props.minWidth)
+      const maxHeight = convertToUnit(props.maxHeight)
+      const maxWidth = convertToUnit(props.maxWidth)
+      const width = convertToUnit(props.width)
 
       if (height) styles.height = height
       if (minHeight) styles.minHeight = minHeight
@@ -37,6 +32,8 @@ export default Vue.extend({
       if (width) styles.width = width
 
       return styles
-    },
-  },
-})
+    })
+  return {
+    measurableStyles,
+  }
+}

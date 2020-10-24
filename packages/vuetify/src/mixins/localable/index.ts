@@ -1,15 +1,15 @@
-import Vue from 'vue'
+import { useVuetify } from '@framework'
+import { computed, ExtractPropTypes, Ref } from 'vue'
+export const localableProps = {
+  locale: String,
+}
 
-export default Vue.extend({
-  name: 'localable',
-
-  props: {
-    locale: String,
-  },
-
-  computed: {
-    currentLocale (): string {
-      return this.locale || this.$vuetify.lang.current
-    },
-  },
-})
+export default function useLocalable(props: ExtractPropTypes<typeof localableProps>) {
+  const vuetify = useVuetify()
+  const currentLocale: Ref<string> = computed(() => {
+    return props.locale ?? vuetify.lang.current
+  })
+  return {
+    currentLocale,
+  }
+}

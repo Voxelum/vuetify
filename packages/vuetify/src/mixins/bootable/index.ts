@@ -1,10 +1,10 @@
+import { computed, ExtractPropTypes, h, reactive, Ref, SetupContext, VNode, watch } from 'vue'
 // Utilities
 import { removed } from '../../util/console'
 
-// Types
-import Vue, { VNode } from 'vue'
-interface Toggleable extends Vue {
-  isActive?: boolean
+export const bootableProps = {
+  eager: Boolean,
+  isActive: Boolean,
 }
 
 /**
@@ -16,39 +16,28 @@ interface Toggleable extends Vue {
  * Otherwise can be set manually
  */
 /* @vue/component */
-export default Vue.extend<Vue & Toggleable>().extend({
-  name: 'bootable',
-
-  props: {
-    eager: Boolean,
-  },
-
-  data: () => ({
+export default function useBootable(props: ExtractPropTypes<typeof bootableProps>, context: SetupContext) {
+  const data = reactive({
     isBooted: false,
-  }),
+  })
+  const hasContent: Ref<boolean | undefined> = computed(() => {
+    return data.isBooted || props.eager || props.isActive
+  })
 
-  computed: {
-    hasContent (): boolean | undefined {
-      return this.isBooted || this.eager || this.isActive
-    },
-  },
+  watch(() => props.isActive, () => {
+    data.isBooted = true
+  })
 
-  watch: {
-    isActive () {
-      this.isBooted = true
-    },
-  },
+  /* istanbul ignore next */
+  if ('lazy' in context.attrs) {
+    removed('lazy', context)
+  }
 
-  created () {
-    /* istanbul ignore next */
-    if ('lazy' in this.$attrs) {
-      removed('lazy', this)
-    }
-  },
-
-  methods: {
-    showLazyContent (content?: () => VNode[]): VNode[] {
-      return (this.hasContent && content) ? content() : [this.$createElement()]
-    },
-  },
-})
+  function showLazyContent(content?: () => VNode[]): VNode[] {
+    return (hasContent.value && content) ? content() : [h('')]
+  }
+  return {
+    hasContent,
+    showLazyContent,
+  }
+}

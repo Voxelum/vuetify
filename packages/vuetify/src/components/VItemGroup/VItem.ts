@@ -1,47 +1,60 @@
 // Mixins
-import { factory as GroupableFactory } from '../../mixins/groupable'
-
-// Utilities
-import mixins from '../../util/mixins'
+// Types
+import { defineComponent, ExtractPropTypes, reactive, SetupContext, toRefs, VNode, VNodeArrayChildren } from 'vue'
+import { GroupableKey, groupableProps, useGroupableFactory } from '../../mixins/groupable'
 import { consoleWarn } from '../../util/console'
 
-// Types
-import Vue from 'vue'
-import { VNode, ScopedSlotChildren } from 'vue/types/vnode'
-
-/* @vue/component */
-export const BaseItem = Vue.extend({
-  props: {
-    activeClass: String,
-    value: {
-      required: false,
-    },
+export const VItemProps = {
+  ...groupableProps('itemGroup'),
+  activeClass: String,
+  value: {
+    required: false,
   },
+}
 
-  data: () => ({
+const useGroupable = useGroupableFactory(GroupableKey, 'v-item', 'v-item-group')
+
+export function useVItem(props: ExtractPropTypes<typeof VItemProps>, context: SetupContext) {
+  // TODO: type check
+  const { } = useGroupable(props as any, context)
+  const data = reactive({
     isActive: false,
-  }),
+  })
+  function toggle() {
+    data.isActive = !data.isActive
+  }
 
-  methods: {
-    toggle () {
-      this.isActive = !this.isActive
-    },
-  },
+  return {
+    ...toRefs(data),
+    toggle,
+  }
+}
 
-  render (): VNode {
-    if (!this.$scopedSlots.default) {
+
+// export default mixins(
+//   BaseItem,
+//   GroupableFactory('itemGroup', 'v-item', 'v-item-group')
+// ).extend({
+// })
+
+export default defineComponent({
+  name: 'v-item',
+  props: VItemProps,
+  setup(props, context) {
+    const { isActive, toggle } = useVItem(props, context)
+    if (!context.slots.default) {
       consoleWarn('v-item is missing a default scopedSlot', this)
 
       return null as any
     }
 
-    let element: VNode | ScopedSlotChildren
+    let element: VNode | VNodeArrayChildren | undefined
 
     /* istanbul ignore else */
-    if (this.$scopedSlots.default) {
-      element = this.$scopedSlots.default({
-        active: this.isActive,
-        toggle: this.toggle,
+    if (context.slots.default) {
+      element = context.slots.default({
+        active: isActive,
+        toggle: toggle,
       })
     }
 
@@ -55,17 +68,13 @@ export const BaseItem = Vue.extend({
       return element as any
     }
 
-    element.data = this._b(element.data || {}, element.tag!, {
-      class: { [this.activeClass]: this.isActive },
-    })
+
+    // TODO: fix this
+    // element.props = this._b(element.props || {}, element.tag!, {
+    //   class: { [props.activeClass]: isActive.value },
+    // })
 
     return element
-  },
+  }
 })
 
-export default mixins(
-  BaseItem,
-  GroupableFactory('itemGroup', 'v-item', 'v-item-group')
-).extend({
-  name: 'v-item',
-})

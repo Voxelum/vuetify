@@ -1,12 +1,16 @@
-// Types
-import Vue, { VNode } from 'vue'
+import { defineComponent, h } from 'vue'
+export const gridProps = {
+  id: String,
+  tag: {
+    type: String,
+    default: 'div',
+  },
+}
 
-export default function VGrid (name: string) {
+export function defineGridComponent(name: string) {
   /* @vue/component */
-  return Vue.extend({
+  return defineComponent({
     name: `v-${name}`,
-
-    functional: true,
 
     props: {
       id: String,
@@ -16,13 +20,10 @@ export default function VGrid (name: string) {
       },
     },
 
-    render (h, { props, data, children }): VNode {
-      data.staticClass = (`${name} ${data.staticClass || ''}`).trim()
-
-      const { attrs } = data
-      if (attrs) {
+    setup(props, context) {
+      return () => {
+        const attrs = { ...context.attrs }
         // reset attrs to extract utility clases like pa-3
-        data.attrs = {}
         const classes = Object.keys(attrs).filter(key => {
           // TODO: Remove once resolved
           // https://github.com/vuejs/vue/issues/7841
@@ -33,22 +34,23 @@ export default function VGrid (name: string) {
           // add back data attributes like data-test="foo" but do not
           // add them as classes
           if (key.startsWith('data-')) {
-            data.attrs![key] = value
+            attrs![key] = value
             return false
           }
 
           return value || typeof value === 'string'
         })
 
-        if (classes.length) data.staticClass += ` ${classes.join(' ')}`
-      }
+        attrs.staticClass = (`${name} ${attrs.staticClass || ''}`).trim()
 
-      if (props.id) {
-        data.domProps = data.domProps || {}
-        data.domProps.id = props.id
-      }
+        if (classes.length) attrs.staticClass += ` ${classes.join(' ')}`
 
-      return h(props.tag, data, children)
-    },
+        if (props.id) {
+          attrs.id = props.id
+        }
+
+        return h(props.tag, attrs, context.slots)
+      }
+    }
   })
 }

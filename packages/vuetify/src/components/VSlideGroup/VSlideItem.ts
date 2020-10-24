@@ -1,14 +1,18 @@
 // Extensions
-import { BaseItem } from '../VItemGroup/VItem'
-
+import { ExtractPropTypes, SetupContext } from 'vue'
 // Mixins
-import { factory as GroupableFactory } from '../../mixins/groupable'
-import mixins from '../../util/mixins'
+import { groupableFactory } from '../../mixins/groupable'
+import { VItemProps } from '../VItemGroup/VItem'
 
-export default mixins(
-  BaseItem,
-  GroupableFactory('slideGroup')
-  /* @vue/component */
-).extend({
-  name: 'v-slide-item',
-})
+
+const { groupableProps, useGroupable } = groupableFactory('slideGroup')
+
+export const VSlideItemProps = {
+  ...VItemProps,
+  ...groupableProps,
+}
+
+export function useVSlideItem(props: ExtractPropTypes<typeof VSlideItemProps>, context: SetupContext) {
+  return useGroupable(props, context)
+}
+

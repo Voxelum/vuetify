@@ -1,190 +1,205 @@
-// Styles
-import './VChip.sass'
-
-// Types
-import { VNode } from 'vue'
-import mixins from '../../util/mixins'
-
+import { computed, defineComponent, ExtractPropTypes, h, reactive, Ref, SetupContext, VNode } from 'vue'
+// Mixins
+import useColorable, { colorableProps } from '../../mixins/colorable'
+import { groupableProps, useGroupableFactory } from '../../mixins/groupable'
+import useRoutable, { routableProps } from '../../mixins/routable'
+import useSizeable, { sizeableProps } from '../../mixins/sizeable'
+import useThemeable, { themeableProps } from '../../mixins/themeable'
+import { toggableProps, useToggleableFactory } from '../../mixins/toggleable'
+// Utilities
+import { breaking } from '../../util/console'
 // Components
 import { VExpandXTransition } from '../transitions'
 import VIcon from '../VIcon'
+// Styles
+import './VChip.sass'
 
-// Mixins
-import Colorable from '../../mixins/colorable'
-import { factory as GroupableFactory } from '../../mixins/groupable'
-import Themeable from '../../mixins/themeable'
-import { factory as ToggleableFactory } from '../../mixins/toggleable'
-import Routable from '../../mixins/routable'
-import Sizeable from '../../mixins/sizeable'
-
-// Utilities
-import { breaking } from '../../util/console'
-
-// Types
-import { PropValidator, PropType } from 'vue/types/options'
-
-/* @vue/component */
-export default mixins(
-  Colorable,
-  Sizeable,
-  Routable,
-  Themeable,
-  GroupableFactory('chipGroup'),
-  ToggleableFactory('inputValue')
-).extend({
-  name: 'v-chip',
-
-  props: {
-    active: {
-      type: Boolean,
-      default: true,
-    },
-    activeClass: {
-      type: String,
-      default (): string | undefined {
-        if (!this.chipGroup) return ''
-
-        return this.chipGroup.activeClass
-      },
-    } as any as PropValidator<string>,
-    close: Boolean,
-    closeIcon: {
-      type: String,
-      default: '$delete',
-    },
-    disabled: Boolean,
-    draggable: Boolean,
-    filter: Boolean,
-    filterIcon: {
-      type: String,
-      default: '$complete',
-    },
-    label: Boolean,
-    link: Boolean,
-    outlined: Boolean,
-    pill: Boolean,
-    tag: {
-      type: String,
-      default: 'span',
-    },
-    textColor: String,
-    value: null as any as PropType<any>,
+export const VChipProps = {
+  ...colorableProps,
+  ...sizeableProps,
+  ...routableProps,
+  ...themeableProps,
+  ...groupableProps('chipGroup'),
+  ...toggableProps('chipGroup'),
+  active: {
+    type: Boolean,
+    default: true,
   },
+  activeClass: {
+    type: String,
+    default(): string | undefined {
+      if (!this.chipGroup) return ''
+      return this.chipGroup.activeClass
+    },
+  } /* as any as PropValidator<string> */,
+  close: Boolean,
+  closeIcon: {
+    type: String,
+    default: '$delete',
+  },
+  disabled: Boolean,
+  draggable: Boolean,
+  filter: Boolean,
+  filterIcon: {
+    type: String,
+    default: '$complete',
+  },
+  label: Boolean,
+  link: Boolean,
+  outlined: Boolean,
+  pill: Boolean,
+  tag: {
+    type: String,
+    default: 'span',
+  },
+  textColor: String,
+  value: null as any /* as PropType<any> */,
+}
 
-  data: () => ({
+//   Colorable,
+//   Sizeable,
+//   Routable,
+//   Themeable,
+//   GroupableFactory('chipGroup'),
+//   ToggleableFactory('inputValue')
+
+const useToggable = useToggleableFactory('inputValue')
+const useGroupable = useGroupableFactory('chipGroup')
+
+export function useVChip(props: ExtractPropTypes<typeof VChipProps>, context: SetupContext) {
+  const { themeClasses } = useThemeable(props)
+  const { sizeableClasses } = useSizeable(props)
+  const coloable = useColorable(context)
+  const { groupClasses, chipGroup, toggle } = useGroupable(props, context)
+  const { classes: routableClasses, isLink, isClickable: routableIsClickable, generateRouteLink } = useRoutable(props, context)
+  const { isActive } = useToggable(props, context)
+  const data = reactive({
     proxyClass: 'v-chip--active',
-  }),
-
-  computed: {
-    classes (): object {
-      return {
-        'v-chip': true,
-        ...Routable.options.computed.classes.call(this),
-        'v-chip--clickable': this.isClickable,
-        'v-chip--disabled': this.disabled,
-        'v-chip--draggable': this.draggable,
-        'v-chip--label': this.label,
-        'v-chip--link': this.isLink,
-        'v-chip--no-color': !this.color,
-        'v-chip--outlined': this.outlined,
-        'v-chip--pill': this.pill,
-        'v-chip--removable': this.hasClose,
-        ...this.themeClasses,
-        ...this.sizeableClasses,
-        ...this.groupClasses,
-      }
-    },
-    hasClose (): boolean {
-      return Boolean(this.close)
-    },
-    isClickable (): boolean {
-      return Boolean(
-        Routable.options.computed.isClickable.call(this) ||
-        this.chipGroup
-      )
-    },
-  },
-
-  created () {
-    const breakingProps = [
-      ['outline', 'outlined'],
-      ['selected', 'input-value'],
-      ['value', 'active'],
-      ['@input', '@active.sync'],
-    ]
-
-    /* istanbul ignore next */
-    breakingProps.forEach(([original, replacement]) => {
-      if (this.$attrs.hasOwnProperty(original)) breaking(original, replacement, this)
-    })
-  },
-
-  methods: {
-    click (e: MouseEvent): void {
-      this.$emit('click', e)
-
-      this.chipGroup && this.toggle()
-    },
-    genFilter (): VNode {
-      const children = []
-
-      if (this.isActive) {
-        children.push(
-          this.$createElement(VIcon, {
-            staticClass: 'v-chip__filter',
-            props: { left: true },
-          }, this.filterIcon)
-        )
-      }
-
-      return this.$createElement(VExpandXTransition, children)
-    },
-    genClose (): VNode {
-      return this.$createElement(VIcon, {
-        staticClass: 'v-chip__close',
-        props: {
-          right: true,
-          size: 18,
-        },
-        on: {
-          click: (e: Event) => {
-            e.stopPropagation()
-            e.preventDefault()
-
-            this.$emit('click:close')
-            this.$emit('update:active', false)
-          },
-        },
-      }, this.closeIcon)
-    },
-    genContent (): VNode {
-      return this.$createElement('span', {
-        staticClass: 'v-chip__content',
-      }, [
-        this.filter && this.genFilter(),
-        this.$slots.default,
-        this.hasClose && this.genClose(),
-      ])
-    },
-  },
-
-  render (h): VNode {
-    const children = [this.genContent()]
-    let { tag, data } = this.generateRouteLink()
-
-    data.attrs = {
-      ...data.attrs,
-      draggable: this.draggable ? 'true' : undefined,
-      tabindex: this.chipGroup && !this.disabled ? 0 : data.attrs!.tabindex,
+  })
+  const classes: Ref<object> = computed(() => {
+    return {
+      'v-chip': true,
+      ...routableClasses.value,
+      'v-chip--clickable': isClickable.value,
+      'v-chip--disabled': props.disabled,
+      'v-chip--draggable': props.draggable,
+      'v-chip--label': props.label,
+      'v-chip--link': isLink.value,
+      'v-chip--no-color': !props.color,
+      'v-chip--outlined': props.outlined,
+      'v-chip--pill': props.pill,
+      'v-chip--removable': hasClose.value,
+      ...themeClasses.value,
+      ...sizeableClasses.value,
+      ...groupClasses.value,
     }
-    data.directives!.push({
-      name: 'show',
-      value: this.active,
-    })
-    data = this.setBackgroundColor(this.color, data)
+  })
+  const hasClose: Ref<boolean> = computed(() => {
+    return Boolean(props.close)
+  })
+  const isClickable: Ref<boolean> = computed(() => {
+    return Boolean(
+      routableIsClickable.value ||
+      chipGroup
+    )
+  })
 
-    const color = this.textColor || (this.outlined && this.color)
+  const breakingProps = [
+    ['outline', 'outlined'],
+    ['selected', 'input-value'],
+    ['value', 'active'],
+    ['@input', '@active.sync'],
+  ]
 
-    return h(tag, this.setTextColor(color, data), children)
+  /* istanbul ignore next */
+  breakingProps.forEach(([original, replacement]) => {
+    if (context.attrs.hasOwnProperty(original)) breaking(original, replacement, context)
+  })
+
+  function click(e: MouseEvent): void {
+    context.emit('click', e)
+
+    chipGroup && toggle()
+  }
+  function genFilter(): VNode {
+    const children = []
+
+    if (isActive.value) {
+      children.push(
+        h(VIcon, {
+          staticClass: 'v-chip__filter',
+          props: { left: true },
+        }, props.filterIcon)
+      )
+    }
+
+    return h(VExpandXTransition, children)
+  }
+  function genClose(): VNode {
+    return h(VIcon, {
+      staticClass: 'v-chip__close',
+      props: {
+        right: true,
+        size: 18,
+      },
+      onClick: (e: Event) => {
+        e.stopPropagation()
+        e.preventDefault()
+
+        context.emit('click:close')
+        context.emit('update:active', false)
+      },
+    }, props.closeIcon)
+  }
+  function genContent(): VNode {
+    return h('span', {
+      staticClass: 'v-chip__content',
+    }, [
+      props.filter && genFilter(),
+      context.slots.default?.(),
+      hasClose.value && genClose(),
+    ])
+  }
+
+  return {
+    classes,
+    hasClose,
+    isClickable,
+    chipGroup,
+    click,
+    genFilter,
+    genClose,
+    genContent,
+    generateRouteLink,
+    ...coloable,
+  }
+}
+
+const VChip = defineComponent({
+  name: 'v-chip',
+  props: VChipProps,
+  setup(props, context) {
+    const { chipGroup, genContent, generateRouteLink, setBackgroundColor, setTextColor } = useVChip(props, context)
+    return () => {
+      const children = [genContent()]
+      let { tag, data } = generateRouteLink()
+
+      data.attrs = {
+        ...data.attrs,
+        draggable: props.draggable ? 'true' : undefined,
+        tabindex: chipGroup && !props.disabled ? 0 : data.attrs!.tabindex,
+      }
+      data.directives!.push({
+        name: 'show',
+        value: props.active,
+      })
+      data = setBackgroundColor(props.color, data)
+
+      const color = props.textColor || (props.outlined && props.color)
+
+      return () => h(tag, setTextColor(color, data), children)
+    }
   },
 })
+
+export default VChip

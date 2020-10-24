@@ -1,93 +1,104 @@
+import { computed, defineComponent, ExtractPropTypes, h, mergeProps, Ref, SetupContext, VNode } from 'vue'
+import useThemeable, { themeableProps } from '../../mixins/themeable'
+import { backgroundColor, colorableProps } from './../../mixins/colorable'
+import { toggableFactory } from './../../mixins/toggleable'
 // Styles
 import './VOverlay.sass'
 
-// Mixins
-import Colorable from './../../mixins/colorable'
-import Themeable from '../../mixins/themeable'
-import Toggleable from './../../mixins/toggleable'
+const { toggableProps, useToggleable } = toggableFactory()
 
-// Utilities
-import mixins from '../../util/mixins'
-
-// Types
-import { VNode } from 'vue'
+export const VOverlayProps = {
+  ...colorableProps,
+  ...themeableProps,
+  ...toggableProps,
+  absolute: Boolean,
+  color: {
+    type: String,
+    default: '#212121',
+  },
+  dark: {
+    type: Boolean,
+    default: true,
+  },
+  opacity: {
+    type: [Number, String],
+    default: 0.46,
+  },
+  value: {
+    default: true,
+  },
+  zIndex: {
+    type: [Number, String],
+    default: 5,
+  },
+}
 
 /* @vue/component */
-export default mixins(
-  Colorable,
-  Themeable,
-  Toggleable
-).extend({
-  name: 'v-overlay',
+// Colorable,
+//   Themeable,
+//   Toggleable
+export function useVOverlay(props: ExtractPropTypes<typeof VOverlayProps>, context: SetupContext) {
+  const { isActive } = useToggleable(props, context)
+  const { themeClasses } = useThemeable(props)
 
-  props: {
-    absolute: Boolean,
-    color: {
-      type: String,
-      default: '#212121',
-    },
-    dark: {
-      type: Boolean,
-      default: true,
-    },
-    opacity: {
-      type: [Number, String],
-      default: 0.46,
-    },
-    value: {
-      default: true,
-    },
-    zIndex: {
-      type: [Number, String],
-      default: 5,
-    },
-  },
+  const __scrim: Ref<VNode> = computed(() => {
+    return h('div', mergeProps(backgroundColor(props.color), {
+      class: 'v-overlay__scrim',
+      style: {
+        opacity: computedOpacity.value,
+      },
+    }))
+  })
+  const classes: Ref<object> = computed(() => {
+    return {
+      'v-overlay': true,
+      'v-overlay--absolute': props.absolute,
+      'v-overlay--active': isActive.value,
+      ...themeClasses.value,
+    }
+  })
+  const computedOpacity: Ref<number> = computed(() => {
+    return Number(isActive.value ? props.opacity : 0)
+  })
+  const styles: Ref<object> = computed(() => {
+    return {
+      zIndex: props.zIndex,
+    }
+  })
 
-  computed: {
-    __scrim (): VNode {
-      const data = this.setBackgroundColor(this.color, {
-        staticClass: 'v-overlay__scrim',
-        style: {
-          opacity: this.computedOpacity,
-        },
-      })
-
-      return this.$createElement('div', data)
-    },
-    classes (): object {
-      return {
-        'v-overlay--absolute': this.absolute,
-        'v-overlay--active': this.isActive,
-        ...this.themeClasses,
-      }
-    },
-    computedOpacity (): number {
-      return Number(this.isActive ? this.opacity : 0)
-    },
-    styles (): object {
-      return {
-        zIndex: this.zIndex,
-      }
-    },
-  },
-
-  methods: {
-    genContent () {
-      return this.$createElement('div', {
-        staticClass: 'v-overlay__content',
-      }, this.$slots.default)
-    },
-  },
-
-  render (h): VNode {
-    const children = [this.__scrim]
-
-    if (this.isActive) children.push(this.genContent())
-
+  function genContent() {
     return h('div', {
-      staticClass: 'v-overlay',
-      class: this.classes,
-      style: this.styles,
-    }, children)
+      class: 'v-overlay__content',
+    }, context.slots.default)
+  }
+
+  return {
+    __scrim,
+    classes,
+    computedOpacity,
+    styles,
+    genContent,
+    isActive,
+  }
+}
+
+const VOverlay = defineComponent({
+  name: 'v-overlay',
+  props: VOverlayProps,
+  setup(props, context) {
+    const { __scrim, isActive, genContent, classes, styles } = useVOverlay(props, context)
+    return () => {
+      const children = [__scrim.value]
+
+      if (isActive.value) children.push(genContent())
+
+      return h('div', mergeProps({
+        class: classes.value,
+        style: styles.value,
+      }, context.attrs), children)
+    }
   },
 })
+
+export default VOverlay
+

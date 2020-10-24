@@ -8,20 +8,20 @@ import { GoToOptions } from './services/goto'
 import {
   Breakpoint,
   BreakpointOptions,
-} from 'vuetify/types/services/breakpoint'
+} from 'types/services/breakpoint'
 import {
   Icons,
   IconsOptions,
-} from 'vuetify/types/services/icons'
+} from 'types/services/icons'
 import {
   Lang,
   LangOptions,
-} from 'vuetify/types/services/lang'
+} from 'types/services/lang'
 import {
   Theme,
   ThemeOptions,
-} from 'vuetify/types/services/theme'
-import { VuetifyService } from 'vuetify/types/services'
+} from 'types/services/theme'
+import { VuetifyService } from 'types/services'
 
 declare const Vuetify: Vuetify
 export default Vuetify

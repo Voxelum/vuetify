@@ -1,32 +1,31 @@
+import { defineComponent, h, mergeProps } from 'vue'
+import useThemeable, { themeableProps } from '../../mixins/themeable'
 // Styles
 import './VSubheader.sass'
 
-// Mixins
-import Themeable from '../../mixins/themeable'
-import mixins from '../../util/mixins'
 
-// Types
-import { VNode } from 'vue'
+export const VSubheaderProps = {
+  ...themeableProps,
+  inset: Boolean,
+}
 
-export default mixins(
-  Themeable
-  /* @vue/component */
-).extend({
+const VSubheader = defineComponent({
   name: 'v-subheader',
+  props: VSubheaderProps,
+  setup(props, context) {
+    const { themeClasses } = useThemeable(props)
+    return () => {
 
-  props: {
-    inset: Boolean,
-  },
-
-  render (h): VNode {
-    return h('div', {
-      staticClass: 'v-subheader',
-      class: {
-        'v-subheader--inset': this.inset,
-        ...this.themeClasses,
-      },
-      attrs: this.$attrs,
-      on: this.$listeners,
-    }, this.$slots.default)
+      return h('div', mergeProps({
+        staticClass: 'v-subheader',
+        class: {
+          'v-subheader--inset': props.inset,
+          ...themeClasses.value,
+        },
+      }, context.attrs), context.slots.default)
+    }
   },
 })
+
+export default VSubheader
+

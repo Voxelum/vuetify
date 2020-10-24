@@ -1,318 +1,365 @@
-// Styles
-import './VInput.sass'
-
-// Components
-import VIcon from '../VIcon'
-import VLabel from '../VLabel'
-import VMessages from '../VMessages'
-
-// Mixins
-import BindsAttrs from '../../mixins/binds-attrs'
-import Validatable from '../../mixins/validatable'
-
+import { backgroundColor, textColor } from '@mixins/colorable'
+import useValidatable, { validatableProps } from '@mixins/validatable/index.ts'
+import { VNodeData } from '@util/vnodeData'
+import { InputValidationRule } from 'types'
+import { computed, defineComponent, ExtractPropTypes, h, mergeProps, PropType, reactive, ref, Ref, SetupContext, toRefs, VNode, VNodeArrayChildren, VNodeChild, watch } from 'vue'
 // Utilities
 import {
   convertToUnit,
   getSlot,
-  kebabCase,
+  kebabCase
 } from '../../util/helpers'
 import mergeData from '../../util/mergeData'
+// Components
+import VIcon from '../VIcon'
+import VLabel from '../VLabel'
+import VMessages from '../VMessages'
+// Styles
+import './VInput.sass'
 
-// Types
-import { VNode, VNodeData, PropType } from 'vue'
-import mixins from '../../util/mixins'
-import { InputValidationRule } from 'vuetify/types'
+export const VInputProps = {
+  ...validatableProps,
+  appendIcon: String,
+  backgroundColor: {
+    type: String,
+    default: '',
+  },
+  dense: Boolean,
+  height: [Number, String],
+  hideDetails: [Boolean, String] as PropType<boolean | 'auto'>,
+  hint: String,
+  id: String,
+  label: String,
+  loading: Boolean,
+  persistentHint: Boolean,
+  prependIcon: String,
+  value: null as any as PropType<any>,
+}
 
-const baseMixins = mixins(
-  BindsAttrs,
-  Validatable,
-)
+// const baseMixins = mixins(
+//   BindsAttrs,
+//   Validatable,
+// )
 
-interface options extends InstanceType<typeof baseMixins> {
-  /* eslint-disable-next-line camelcase */
-  $_modelEvent: string
+// interface options extends InstanceType<typeof baseMixins> {
+//   /* eslint-disable-next-line camelcase */
+//   $_modelEvent: string
+// }
+export function renderInputSlot(
+  type: string,
+  location: string,
+  slot: (VNode | VNode[])[],
+  ref: Ref<HTMLElement | null>,
+) {
+  if (!slot.length) return null
+
+  const refName = `${type}-${location}`
+  return h('div', {
+    class: `v-input__${refName}`,
+    ref: ref,
+  }, slot)
 }
 
 /* @vue/component */
-export default baseMixins.extend<options>().extend({
-  name: 'v-input',
+export function useVInput(props: ExtractPropTypes<typeof VInputProps>, context: SetupContext, _modelEvent: string = 'value') {
+  const { themeClasses, isFocused, hasState, isDisabled, isReadonly, hasMessages, validations, validationState, ...useValidations } = useValidatable(props, context)
+  const data = reactive({
+    lazyValue: props.value,
+    hasMouseDown: false,
+  })
 
-  inheritAttrs: false,
+  const prependInner: Ref<HTMLElement | null> = ref(null)
+  const prependOuter: Ref<HTMLElement | null> = ref(null)
+  const appendInner: Ref<HTMLElement | null> = ref(null)
+  const appendOuter: Ref<HTMLElement | null> = ref(null)
 
-  props: {
-    appendIcon: String,
-    backgroundColor: {
-      type: String,
-      default: '',
-    },
-    dense: Boolean,
-    height: [Number, String],
-    hideDetails: [Boolean, String] as PropType<boolean | 'auto'>,
-    hint: String,
-    id: String,
-    label: String,
-    loading: Boolean,
-    persistentHint: Boolean,
-    prependIcon: String,
-    value: null as any as PropType<any>,
-  },
-
-  data () {
+  const classes: Ref<object> = computed(() => {
     return {
-      lazyValue: this.value,
-      hasMouseDown: false,
+      'v-input': true,
+      'v-input--has-state': hasState.value,
+      'v-input--hide-details': !showDetails.value,
+      'v-input--is-label-active': isLabelActive.value,
+      'v-input--is-dirty': isDirty.value,
+      'v-input--is-disabled': isDisabled.value,
+      'v-input--is-focused': isFocused.value,
+      // <v-switch loading>.loading === '' so we can't just cast to boolean
+      'v-input--is-loading': props.loading !== false && props.loading != null,
+      'v-input--is-readonly': isReadonly.value,
+      'v-input--dense': props.dense,
+      ...themeClasses.value,
     }
-  },
+  })
+  const computedId: Ref<string> = computed(() => {
+    return props.id || `input-${props._uid}`
+  })
+  const hasDetails: Ref<boolean> = computed(() => {
+    return messagesToDisplay.value.length > 0
+  })
+  const hasHint: Ref<boolean> = computed(() => {
+    return !hasMessages &&
+      !!props.hint &&
+      (props.persistentHint || isFocused.value)
+  })
+  const hasLabel: Ref<boolean> = computed(() => {
+    return !!(context.slots.label || props.label)
+  })
+  const internalValue = computed({
+    get(): any {
+      return data.lazyValue
+    },
+    set(val: any) {
+      data.lazyValue = val
+      context.emit(_modelEvent, val)
+    },
+  })
+  const isDirty: Ref<boolean> = computed(() => {
+    return !!data.lazyValue
+  })
+  const isLabelActive: Ref<boolean> = computed(() => {
+    return isDirty.value
+  })
+  const messagesToDisplay: Ref<string[]> = computed(() => {
+    if (hasHint.value) return [props.hint ?? '']
 
-  computed: {
-    classes (): object {
-      return {
-        'v-input--has-state': this.hasState,
-        'v-input--hide-details': !this.showDetails,
-        'v-input--is-label-active': this.isLabelActive,
-        'v-input--is-dirty': this.isDirty,
-        'v-input--is-disabled': this.isDisabled,
-        'v-input--is-focused': this.isFocused,
-        // <v-switch loading>.loading === '' so we can't just cast to boolean
-        'v-input--is-loading': this.loading !== false && this.loading != null,
-        'v-input--is-readonly': this.isReadonly,
-        'v-input--dense': this.dense,
-        ...this.themeClasses,
-      }
-    },
-    computedId (): string {
-      return this.id || `input-${this._uid}`
-    },
-    hasDetails (): boolean {
-      return this.messagesToDisplay.length > 0
-    },
-    hasHint (): boolean {
-      return !this.hasMessages &&
-        !!this.hint &&
-        (this.persistentHint || this.isFocused)
-    },
-    hasLabel (): boolean {
-      return !!(this.$slots.label || this.label)
-    },
-    // Proxy for `lazyValue`
-    // This allows an input
-    // to function without
-    // a provided model
-    internalValue: {
-      get (): any {
-        return this.lazyValue
-      },
-      set (val: any) {
-        this.lazyValue = val
-        this.$emit(this.$_modelEvent, val)
-      },
-    },
-    isDirty (): boolean {
-      return !!this.lazyValue
-    },
-    isLabelActive (): boolean {
-      return this.isDirty
-    },
-    messagesToDisplay (): string[] {
-      if (this.hasHint) return [this.hint]
+    if (!hasMessages) return []
 
-      if (!this.hasMessages) return []
+    return validations.value.map((validation: string | InputValidationRule) => {
+      if (typeof validation === 'string') return validation
 
-      return this.validations.map((validation: string | InputValidationRule) => {
-        if (typeof validation === 'string') return validation
+      const validationResult = validation(internalValue.value)
 
-        const validationResult = validation(this.internalValue)
+      return typeof validationResult === 'string' ? validationResult : ''
+    }).filter(message => message !== '')
+  })
+  const showDetails: Ref<boolean> = computed(() => {
+    return props.hideDetails === false || (props.hideDetails === 'auto' && hasDetails.value)
+  })
 
-        return typeof validationResult === 'string' ? validationResult : ''
-      }).filter(message => message !== '')
-    },
-    showDetails (): boolean {
-      return this.hideDetails === false || (this.hideDetails === 'auto' && this.hasDetails)
-    },
-  },
+  watch(() => props.value, (val) => {
+    data.lazyValue = val
+  })
 
-  watch: {
-    value (val) {
-      this.lazyValue = val
-    },
-  },
+  function genControl(children: string | number | boolean | VNode | VNodeArrayChildren = [
+    genInputSlot(),
+    genMessages(),
+  ]) {
+    return h('div', {
+      class: 'v-input__control',
+    }, children)
+  }
+  function genIcon(
+    type: string,
+    cb?: (e: Event) => void,
+    extraData: VNodeData = {}
+  ) {
+    const icon = (props as any)[`${type}Icon`]
+    const eventName = `click:${kebabCase(type)}`
+    const hasListener = !!(props.listeners$[eventName] || cb)
 
-  beforeCreate () {
-    // v-radio-group needs to emit a different event
-    // https://github.com/vuetifyjs/vuetify/issues/4752
-    this.$_modelEvent = (this.$options.model && this.$options.model.event) || 'input'
-  },
+    // TODO: fix listeners
 
-  methods: {
-    genContent () {
-      return [
-        this.genPrependSlot(),
-        this.genControl(),
-        this.genAppendSlot(),
-      ]
-    },
-    genControl () {
-      return this.$createElement('div', {
-        staticClass: 'v-input__control',
-      }, [
-        this.genInputSlot(),
-        this.genMessages(),
-      ])
-    },
-    genDefaultSlot () {
-      return [
-        this.genLabel(),
-        this.$slots.default,
-      ]
-    },
-    genIcon (
-      type: string,
-      cb?: (e: Event) => void,
-      extraData: VNodeData = {}
-    ) {
-      const icon = (this as any)[`${type}Icon`]
-      const eventName = `click:${kebabCase(type)}`
-      const hasListener = !!(this.listeners$[eventName] || cb)
+    const data = mergeProps({
+      'aria-label': hasListener ? kebabCase(type).split('-')[0] + ' icon' : undefined,
+      color: validationState.value,
+      dark: props.dark,
+      disabled: isDisabled.value,
+      light: props.light,
+      on: !hasListener
+        ? undefined
+        : {
+          click: (e: Event) => {
+            e.preventDefault()
+            e.stopPropagation()
 
-      const data = mergeData({
-        attrs: {
-          'aria-label': hasListener ? kebabCase(type).split('-')[0] + ' icon' : undefined,
-          color: this.validationState,
-          dark: this.dark,
-          disabled: this.isDisabled,
-          light: this.light,
-        },
-        on: !hasListener
-          ? undefined
-          : {
-            click: (e: Event) => {
-              e.preventDefault()
-              e.stopPropagation()
-
-              this.$emit(eventName, e)
-              cb && cb(e)
-            },
-            // Container has g event that will
-            // trigger menu open if enclosed
-            mouseup: (e: Event) => {
-              e.preventDefault()
-              e.stopPropagation()
-            },
+            context.emit(eventName, e)
+            cb && cb(e)
           },
-      }, extraData)
-
-      return this.$createElement('div', {
-        staticClass: `v-input__icon`,
-        class: type ? `v-input__icon--${kebabCase(type)}` : undefined,
-      }, [
-        this.$createElement(
-          VIcon,
-          data,
-          icon
-        ),
-      ])
-    },
-    genInputSlot () {
-      return this.$createElement('div', this.setBackgroundColor(this.backgroundColor, {
-        staticClass: 'v-input__slot',
-        style: { height: convertToUnit(this.height) },
-        on: {
-          click: this.onClick,
-          mousedown: this.onMouseDown,
-          mouseup: this.onMouseUp,
+          // Container has g event that will
+          // trigger menu open if enclosed
+          mouseup: (e: Event) => {
+            e.preventDefault()
+            e.stopPropagation()
+          },
         },
-        ref: 'input-slot',
-      }), [this.genDefaultSlot()])
-    },
-    genLabel () {
-      if (!this.hasLabel) return null
+    }, extraData)
 
-      return this.$createElement(VLabel, {
-        props: {
-          color: this.validationState,
-          dark: this.dark,
-          disabled: this.isDisabled,
-          focused: this.hasState,
-          for: this.computedId,
-          light: this.light,
-        },
-      }, this.$slots.label || this.label)
-    },
-    genMessages () {
-      if (!this.showDetails) return null
+    return h('div', {
+      staticClass: `v-input__icon`,
+      class: type ? `v-input__icon--${kebabCase(type)}` : undefined,
+    }, [
+      h(
+        VIcon,
+        data,
+        icon
+      ),
+    ])
+  }
+  function genInputSlot(defaultSlot: string | number | boolean | VNode | VNodeArrayChildren = [
+    genLabel(),
+    context.slots.default?.(),
+  ]) {
+    return h('div', mergeProps(backgroundColor(props.backgroundColor), {
+      class: 'v-input__slot',
+      style: { height: convertToUnit(props.height) },
+      onClick,
+      onMouseDown,
+      onMouseUp,
+      ref: 'input-slot',
+    }), defaultSlot)
+  }
+  function genLabel() {
+    if (!hasLabel.value) return null
 
-      return this.$createElement(VMessages, {
-        props: {
-          color: this.hasHint ? '' : this.validationState,
-          dark: this.dark,
-          light: this.light,
-          value: this.messagesToDisplay,
-        },
-        attrs: {
-          role: this.hasMessages ? 'alert' : null,
-        },
-        scopedSlots: {
-          default: props => getSlot(this, 'message', props),
-        },
-      })
-    },
-    genSlot (
-      type: string,
-      location: string,
-      slot: (VNode | VNode[])[]
-    ) {
-      if (!slot.length) return null
+    return h(VLabel, {
+      color: validationState.value,
+      dark: props.dark,
+      disabled: isDisabled.value,
+      focused: hasState.value,
+      for: computedId.value,
+      light: props.light,
+    }, context.slots.label || props.label)
+  }
+  function genMessages() {
+    if (!showDetails.value) return null
 
-      const ref = `${type}-${location}`
+    return h(VMessages, {
+      color: hasHint.value ? '' : validationState.value,
+      dark: props.dark,
+      light: props.light,
+      value: messagesToDisplay.value,
+      role: hasMessages.value ? 'alert' : null,
+    }, {
+      default: (props: any) => getSlot(context, 'message', props),
+    })
+  }
+  function genSlot(
+    type: string,
+    location: string,
+    slot: (VNode | VNode[])[]
+  ) {
+    if (!slot.length) return null
 
-      return this.$createElement('div', {
-        staticClass: `v-input__${ref}`,
-        ref,
-      }, slot)
-    },
-    genPrependSlot () {
-      const slot = []
+    const refName = `${type}-${location}`
+    let ref = undefined
+    switch (refName) {
+      case 'prepend-inner':
+        ref = prependInner
+        break
+      case 'prepend-outer':
+        ref = prependOuter
+        break
+      case 'append-inner':
+        ref = appendInner
+        break
+      case 'append-outer':
+        ref = appendOuter
+        break
+    }
 
-      if (this.$slots.prepend) {
-        slot.push(this.$slots.prepend)
-      } else if (this.prependIcon) {
-        slot.push(this.genIcon('prepend'))
-      }
+    return h('div', {
+      class: `v-input__${refName}`,
+      ref: ref,
+    }, slot)
+  }
+  function genPrependSlot() {
+    const slot = []
 
-      return this.genSlot('prepend', 'outer', slot)
-    },
-    genAppendSlot () {
-      const slot = []
+    if (context.slots.prepend) {
+      slot.push(context.slots.prepend())
+    } else if (props.prependIcon) {
+      slot.push(genIcon('prepend'))
+    }
 
-      // Append icon for text field was really
-      // an appended inner icon, v-text-field
-      // will overwrite this method in order to obtain
-      // backwards compat
-      if (this.$slots.append) {
-        slot.push(this.$slots.append)
-      } else if (this.appendIcon) {
-        slot.push(this.genIcon('append'))
-      }
+    return genSlot('prepend', 'outer', slot)
+  }
+  function genAppendSlot() {
+    const slot = []
 
-      return this.genSlot('append', 'outer', slot)
-    },
-    onClick (e: Event) {
-      this.$emit('click', e)
-    },
-    onMouseDown (e: Event) {
-      this.hasMouseDown = true
-      this.$emit('mousedown', e)
-    },
-    onMouseUp (e: Event) {
-      this.hasMouseDown = false
-      this.$emit('mouseup', e)
-    },
-  },
+    // Append icon for text field was really
+    // an appended inner icon, v-text-field
+    // will overwrite this method in order to obtain
+    // backwards compat
+    if (context.slots.append) {
+      slot.push(context.slots.append())
+    } else if (props.appendIcon) {
+      slot.push(genIcon('append'))
+    }
 
-  render (h): VNode {
-    return h('div', this.setTextColor(this.validationState, {
-      staticClass: 'v-input',
-      class: this.classes,
-    }), this.genContent())
+    return genSlot('append', 'outer', slot)
+  }
+  function onClick(e: Event) {
+    context.emit('click', e)
+  }
+  function onMouseDown(e: Event) {
+    data.hasMouseDown = true
+    context.emit('mousedown', e)
+  }
+  function onMouseUp(e: Event) {
+    data.hasMouseDown = false
+    context.emit('mouseup', e)
+  }
+
+  return {
+    ...toRefs(data),
+    prependInner,
+    prependOuter,
+    appendInner,
+    appendOuter,
+    isFocused,
+    themeClasses, hasState, isDisabled, isReadonly, hasMessages, validations, validationState, ...useValidations,
+    classes,
+    computedId,
+    hasDetails,
+    hasHint,
+    hasLabel,
+    internalValue,
+    isDirty,
+    isLabelActive,
+    messagesToDisplay,
+    showDetails,
+    genControl,
+    genIcon,
+    genInputSlot,
+    genLabel,
+    genMessages,
+    genSlot,
+    genPrependSlot,
+    genAppendSlot,
+    onClick,
+    onMouseDown,
+    onMouseUp,
+  }
+}
+
+const VInput = defineComponent({
+  name: 'v-input',
+  props: VInputProps,
+  setup(props, context) {
+    const {
+      genPrependSlot,
+      genAppendSlot,
+      genInputSlot,
+      genControl,
+      genMessages,
+      genLabel,
+      classes,
+      validationState,
+    } = useVInput(props, context)
+    return () => h('div', mergeProps(textColor(validationState.value), {
+      class: classes.value,
+    }), [
+      genPrependSlot(),
+      genControl([
+        genInputSlot([
+          genLabel(),
+          context.slots.default?.(),
+        ]),
+        genMessages(),
+      ]),
+      genAppendSlot(),
+    ])
   },
 })
+
+export default VInput
+

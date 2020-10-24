@@ -1,48 +1,33 @@
-import Vue from 'vue'
-import { VueConstructor } from 'vue/types/vue'
-import { consoleWarn } from '../../util/console'
+import { InjectionKey } from '@util/injection';
+import { consoleWarn } from '../../util/console';
 
-function generateWarning (child: string, parent: string) {
+function generateWarning(child: string, parent: string) {
   return () => consoleWarn(`The ${child} component must be used inside a ${parent}`)
 }
 
-export type Registrable<T extends string, C extends VueConstructor | null = null> = VueConstructor<Vue & {
-  [K in T]: C extends VueConstructor ? InstanceType<C> : {
-    register (...props: any[]): void
-    unregister (self: any): void
-  }
-}>
-
-export function inject<
-  T extends string, C extends VueConstructor | null = null
-> (namespace: T, child?: string, parent?: string): Registrable<T, C> {
-  const defaultImpl = child && parent ? {
-    register: generateWarning(child, parent),
-    unregister: generateWarning(child, parent),
-  } : null
-
-  return Vue.extend({
-    name: 'registrable-inject',
-
-    inject: {
-      [namespace]: {
-        default: defaultImpl,
-      },
-    },
-  })
+export type Registrable = {
+  register(...props: any[]): void
+  unregister(self: any): void
 }
 
-export function provide (namespace: string, self = false) {
-  return Vue.extend({
-    name: 'registrable-provide',
+export const registrable = (child?: string, parent?: string) => child && parent ? {
+  register: generateWarning(child, parent),
+  unregister: generateWarning(child, parent),
+} as Registrable : undefined;
 
-    provide (): object {
-      return {
-        [namespace]: self ? this : {
-          register: (this as any).register,
-          unregister: (this as any).unregister,
-        },
-      }
-    },
-  })
-}
+export type RegistrableKey = InjectionKey<Registrable>;
+
+// export function provide(namespace: string, self = false) {
+//   return Vue.extend({
+//     name: 'registrable-provide',
+
+//     provide(): object {
+//       return {
+//         [namespace]: self ? this : {
+//           register: (this as any).register,
+//           unregister: (this as any).unregister,
+//         },
+//       }
+//     },
+//   })
+// }

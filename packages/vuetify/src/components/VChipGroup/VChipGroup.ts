@@ -1,55 +1,42 @@
+import { computed, ExtractPropTypes, nextTick, SetupContext, watch } from 'vue'
+import useColorable, { colorableProps } from '../../mixins/colorable'
+// Extensions
+import { useVSlideGroup, VSlideGroupProps } from '../VSlideGroup/VSlideGroup'
 // Styles
 import './VChipGroup.sass'
 
-// Extensions
-import { BaseSlideGroup } from '../VSlideGroup/VSlideGroup'
-
-// Mixins
-import Colorable from '../../mixins/colorable'
-
 // Utilities
-import mixins from '../../util/mixins'
+
+export const VChipGroupProps = {
+  ...VSlideGroupProps,
+  ...colorableProps,
+  column: Boolean,
+}
 
 /* @vue/component */
-export default mixins(
-  BaseSlideGroup,
-  Colorable
-).extend({
-  name: 'v-chip-group',
-
-  provide () {
+export function useVChipGroup(props: ExtractPropTypes<typeof VChipGroupProps>, context: SetupContext) {
+  const { setTextColor } = useColorable(context)
+  const { onResize, genData: sliderGroupGenData, classes: slideGroupClasses, scrollOffset } = useVSlideGroup(props, context)
+  const classes = computed(() => {
     return {
-      chipGroup: this,
+      ...slideGroupClasses.value,
+      'v-chip-group': true,
+      'v-chip-group--column': props.column,
     }
-  },
+  })
 
-  props: {
-    column: Boolean,
-  },
+  watch(() => props.column, (val) => {
+    if (val) scrollOffset.value = 0
+    nextTick(onResize)
+  })
 
-  computed: {
-    classes () {
-      return {
-        ...BaseSlideGroup.options.computed.classes.call(this),
-        'v-chip-group': true,
-        'v-chip-group--column': this.column,
-      }
-    },
-  },
-
-  watch: {
-    column (val) {
-      if (val) this.scrollOffset = 0
-
-      this.$nextTick(this.onResize)
-    },
-  },
-
-  methods: {
-    genData () {
-      return this.setTextColor(this.color, {
-        ...BaseSlideGroup.options.methods.genData.call(this),
-      })
-    },
-  },
-})
+  function genData() {
+    return setTextColor(props.color, {
+      ...sliderGroupGenData(),
+    })
+  }
+  return {
+    classes,
+    genData,
+  }
+}

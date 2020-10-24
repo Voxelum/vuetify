@@ -1,51 +1,59 @@
+import { defineComponent, ExtractPropTypes, h, mergeProps, PropType, SetupContext } from 'vue'
+import { colorableProps, textColor } from '../../mixins/colorable'
+import useThemeable, { themeableProps } from '../../mixins/themeable'
+// Utilities
+import { getSlot } from '../../util/helpers'
 // Styles
 import './VMessages.sass'
 
-// Mixins
-import Colorable from '../../mixins/colorable'
-import Themeable from '../../mixins/themeable'
-
-// Types
-import { VNode } from 'vue'
-import { PropValidator } from 'vue/types/options'
-import mixins from '../../util/mixins'
-
-// Utilities
-import { getSlot } from '../../util/helpers'
+export const messagesProps = {
+  value: {
+    type: Array as PropType<string[]>,
+    default: () => ([]),
+  },
+}
+export const VMessagesProps = {
+  ...colorableProps,
+  ...themeableProps,
+  ...messagesProps,
+}
 
 /* @vue/component */
-export default mixins(Colorable, Themeable).extend({
+export function useMessages(props: ExtractPropTypes<typeof messagesProps>, context: SetupContext) {
+  function genChildren() {
+    return h('transition-group', {
+      class: 'v-messages__wrapper',
+      name: 'message-transition',
+      tag: 'div',
+    }, props.value.map(genMessage))
+  }
+  function genMessage(message: string, key: number) {
+    return h('div', {
+      class: 'v-messages__message',
+      key,
+    }, getSlot(context, 'default', { message, key }) || [message])
+  }
+  return {
+    genChildren,
+    genMessage,
+  }
+}
+
+const VMessages = defineComponent({
   name: 'v-messages',
+  props: VMessagesProps,
+  setup(props, context) {
+    const { themeClasses } = useThemeable(props)
+    const { genChildren } = useMessages(props, context)
 
-  props: {
-    value: {
-      type: Array,
-      default: () => ([]),
-    } as PropValidator<string[]>,
-  },
-
-  methods: {
-    genChildren () {
-      return this.$createElement('transition-group', {
-        staticClass: 'v-messages__wrapper',
-        attrs: {
-          name: 'message-transition',
-          tag: 'div',
-        },
-      }, this.value.map(this.genMessage))
-    },
-    genMessage (message: string, key: number) {
-      return this.$createElement('div', {
-        staticClass: 'v-messages__message',
-        key,
-      }, getSlot(this, 'default', { message, key }) || [message])
-    },
-  },
-
-  render (h): VNode {
-    return h('div', this.setTextColor(this.color, {
-      staticClass: 'v-messages',
-      class: this.themeClasses,
-    }), [this.genChildren()])
+    return () => h('div', mergeProps(
+      textColor(props.color),
+      {
+        class: { ...themeClasses.value, 'v-messages': true },
+      },
+      context.attrs,
+    ), [genChildren()])
   },
 })
+
+export default VMessages
